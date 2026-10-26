@@ -3,7 +3,14 @@ import type { GameServices } from "./game";
 import type { Scene } from "./scene";
 import { tr, type Localized } from "./i18n";
 import { isTouchDevice } from "./touch";
-import { blink, COLORS, drawPanel, drawText } from "./ui";
+import { blink, COLORS, drawPanel, drawText, FONT_SIZE, measureText } from "./ui";
+
+/** The how-to block is secondary to the title, so it uses a smaller size than regular UI text. */
+const HELP_SIZE = 7;
+const HELP_LINE = 11;
+const TITLE_SIZE = 24;
+const GROUP_GAP = 16;
+const DISCLAIMER_Y = HEIGHT - 20;
 
 const HOW_TO_PLAY: Array<[Localized, Localized]> = [
   [{ en: "WALK", zh: "走動" }, { en: "LEFT / RIGHT arrows (or A / D) along the hall", zh: "LEFT / RIGHT 方向鍵（或 A / D）在長廊走動" }],
@@ -46,40 +53,53 @@ export class BootScene implements Scene {
   render(g: CanvasRenderingContext2D): void {
     g.fillStyle = COLORS.bg;
     g.fillRect(0, 0, WIDTH, HEIGHT);
-    drawText(g, "RETRO ARCADE", WIDTH / 2, 36, { align: "center", size: 24, color: COLORS.accent });
-    drawText(g, { en: "A hallway of arcade cabinets. Walk up to one and play.", zh: "一條擺滿街機的長廊，走到機台前就能玩。" }, WIDTH / 2, 66, { align: "center", color: COLORS.dim });
+    drawText(g, { en: "Inspired by classic arcades. Not affiliated with any original publisher.", zh: "受經典街機啟發，與任何原作公司無關。" }, WIDTH / 2, DISCLAIMER_Y, {
+      align: "center",
+      color: COLORS.dim,
+    });
+
+    // title, how-to panel, touch hint and prompt form one group, centered vertically above the disclaimer
+    const panelH = 26 + HOW_TO_PLAY.length * HELP_LINE;
+    const touchH = this.touch ? HELP_LINE + 4 : 0;
+    const groupH = TITLE_SIZE + GROUP_GAP + panelH + touchH + GROUP_GAP + FONT_SIZE;
+    let y = Math.round((DISCLAIMER_Y - 8 - groupH) / 2);
+    drawText(g, "RETRO ARCADE", WIDTH / 2, y, { align: "center", size: TITLE_SIZE, color: COLORS.accent });
+    y += TITLE_SIZE + GROUP_GAP;
 
     if (this.error) {
-      drawText(g, { en: "FAILED TO LOAD", zh: "載入失敗" }, WIDTH / 2, 140, { align: "center", color: COLORS.danger });
-      drawText(g, this.error.slice(0, 70), WIDTH / 2, 154, { align: "center", color: COLORS.dim });
+      drawText(g, { en: "FAILED TO LOAD", zh: "載入失敗" }, WIDTH / 2, y, { align: "center", color: COLORS.danger });
+      drawText(g, this.error.slice(0, 70), WIDTH / 2, y + 14, { align: "center", color: COLORS.dim });
       return;
     }
     if (!this.ready) {
       const dots = ".".repeat(1 + (Math.floor(this.time * 3) % 3));
-      drawText(g, `${tr({ en: "LOADING", zh: "載入中" })}${dots}`, WIDTH / 2, 140, { align: "center", color: COLORS.dim });
+      drawText(g, `${tr({ en: "LOADING", zh: "載入中" })}${dots}`, WIDTH / 2, y, { align: "center", color: COLORS.dim });
       return;
     }
 
-    const px = 70;
-    const py = 88;
-    drawPanel(g, px, py, WIDTH - px * 2, 28 + HOW_TO_PLAY.length * 13);
-    drawText(g, { en: "HOW TO PLAY", zh: "遊戲說明" }, WIDTH / 2, py + 7, { align: "center", color: COLORS.accent });
+    // panel hugs its longest row, centered
+    const keyW = Math.max(...HOW_TO_PLAY.map(([key]) => measureText(g, key, HELP_SIZE))) + 14;
+    const textW = Math.max(...HOW_TO_PLAY.map(([, text]) => measureText(g, text, HELP_SIZE)));
+    const pw = Math.ceil(keyW + textW + 28);
+    const px = Math.round((WIDTH - pw) / 2);
+    drawPanel(g, px, y, pw, panelH);
+    drawText(g, { en: "HOW TO PLAY", zh: "遊戲說明" }, WIDTH / 2, y + 6, { align: "center", color: COLORS.accent, size: HELP_SIZE + 1 });
     HOW_TO_PLAY.forEach(([key, text], i) => {
-      drawText(g, key, px + 14, py + 24 + i * 13, { color: COLORS.good });
-      drawText(g, text, px + 70, py + 24 + i * 13);
+      const ry = y + 21 + i * HELP_LINE;
+      drawText(g, key, px + 14, ry, { color: COLORS.good, size: HELP_SIZE });
+      drawText(g, text, px + 14 + keyW, ry, { size: HELP_SIZE });
     });
+    y += panelH;
 
     if (this.touch) {
-      drawText(g, { en: "TOUCH: D-PAD = arrow keys,  A = SPACE / ENTER,  II = ESC", zh: "觸控：方向盤＝方向鍵，A＝SPACE / ENTER，II＝ESC" }, WIDTH / 2, 196, {
+      drawText(g, { en: "TOUCH: D-PAD = arrow keys,  A = SPACE / ENTER,  II = ESC", zh: "觸控：方向盤＝方向鍵，A＝SPACE / ENTER，II＝ESC" }, WIDTH / 2, y + 4, {
         align: "center",
         color: COLORS.good,
+        size: HELP_SIZE,
       });
+      y += touchH;
     }
     const start = this.touch ? { en: "TAP TO ENTER", zh: "點一下進入" } : { en: "PRESS ANY KEY TO ENTER", zh: "按任意鍵進入" };
-    if (blink(this.time)) drawText(g, start, WIDTH / 2, 214, { align: "center" });
-    drawText(g, { en: "Inspired by classic arcades. Not affiliated with any original publisher.", zh: "受經典街機啟發，與任何原作公司無關。" }, WIDTH / 2, HEIGHT - 20, {
-      align: "center",
-      color: COLORS.dim,
-    });
+    if (blink(this.time)) drawText(g, start, WIDTH / 2, y + GROUP_GAP, { align: "center" });
   }
 }
