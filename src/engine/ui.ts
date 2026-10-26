@@ -1,7 +1,7 @@
 import { HEIGHT, HUD_HEIGHT, WIDTH } from "./constants";
 import { getLang, tr, type Text } from "./i18n";
 
-/** Shared palette for placeholder visuals. Stage 9 can retune these in one place. */
+/** Shared interface colors. Sprite colors live in art/palette.ts. */
 export const COLORS = {
   bg: "#0b0b1a",
   hudBg: "#000000",
@@ -30,7 +30,7 @@ function setFont(g: CanvasRenderingContext2D, size: number): void {
   g.font = getLang() === "zh" ? `${size + ZH_SIZE_BONUS}px ${ZH_FONT}` : `${size}px monospace`;
 }
 
-/** All text goes through here so a bitmap font can replace it later. */
+/** All interface text goes through here. Logos and cabinet signs use the pixel font in art/font.ts instead. */
 export function drawText(
   g: CanvasRenderingContext2D,
   text: Text,

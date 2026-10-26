@@ -1,52 +1,50 @@
+import { renderTrack } from "../audio/music";
+import { renderSfx, SFX, type SoundName } from "../audio/sfx";
+import { SAMPLE_RATE } from "../audio/synth";
+import { TRACKS, type MusicName } from "../audio/tracks";
 import { getFlag, getNumber, setFlag, setNumber } from "./storage";
 
-/**
- * Placeholder synthesized sound. Stage 9 replaces these with recorded files via
- * AudioManager.load(); any name without a loaded file falls back to its synth.
- */
-export interface SynthDef {
-  wave: OscillatorType | "noise";
-  /** Start frequency (Hz). Ignored for noise. */
-  from: number;
-  /** End frequency (Hz), swept exponentially. Ignored for noise. */
-  to: number;
-  duration: number;
-  volume?: number;
-}
-
-export const SOUNDS = {
-  select: { wave: "square", from: 660, to: 660, duration: 0.05, volume: 0.25 },
-  confirm: { wave: "square", from: 440, to: 880, duration: 0.12, volume: 0.25 },
-  back: { wave: "square", from: 660, to: 330, duration: 0.1, volume: 0.25 },
-  pause: { wave: "triangle", from: 520, to: 260, duration: 0.15, volume: 0.3 },
-  step: { wave: "triangle", from: 180, to: 140, duration: 0.03, volume: 0.15 },
-  eat: { wave: "square", from: 500, to: 900, duration: 0.06, volume: 0.2 },
-  powerup: { wave: "square", from: 300, to: 1200, duration: 0.3, volume: 0.25 },
-  shoot: { wave: "square", from: 900, to: 200, duration: 0.08, volume: 0.15 },
-  enemyShoot: { wave: "sawtooth", from: 400, to: 150, duration: 0.1, volume: 0.1 },
-  bounce: { wave: "square", from: 300, to: 300, duration: 0.03, volume: 0.2 },
-  hit: { wave: "square", from: 220, to: 110, duration: 0.06, volume: 0.25 },
-  explode: { wave: "noise", from: 0, to: 0, duration: 0.3, volume: 0.35 },
-  bigExplode: { wave: "noise", from: 0, to: 0, duration: 0.7, volume: 0.45 },
-  die: { wave: "sawtooth", from: 600, to: 60, duration: 0.6, volume: 0.3 },
-  levelUp: { wave: "triangle", from: 400, to: 1600, duration: 0.5, volume: 0.3 },
-  gameOver: { wave: "triangle", from: 440, to: 80, duration: 1.0, volume: 0.35 },
-  trap: { wave: "triangle", from: 200, to: 600, duration: 0.15, volume: 0.25 },
-} satisfies Record<string, SynthDef>;
-
-export type SoundName = keyof typeof SOUNDS;
+export type { MusicName, SoundName };
 
 const MUTE_KEY = "muted";
 const VOLUME_KEY = "volume";
 export const MAX_VOLUME = 10;
 const DEFAULT_VOLUME = 7;
 
+/** Music sits well under the effects so shots and pickups stay easy to hear. */
+const MUSIC_LEVEL = 0.3;
+/** Music level while the game is paused. */
+const MUSIC_DUCKED = 0.09;
+const MUSIC_FADE_IN = 0.15;
+const MUSIC_FADE_OUT = 0.25;
+
+interface PlayingMusic {
+  name: MusicName;
+  source: AudioBufferSourceNode;
+  gain: GainNode;
+}
+
+const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+/**
+ * Plays sound effects and looping music. Everything is synthesized by code in
+ * src/audio/ and rendered to sample buffers up front (prepare()), so there are
+ * no audio files to load or license.
+ */
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
-  private noise: AudioBuffer | null = null;
-  private buffers = new Map<string, AudioBuffer>();
-  private pendingLoads: Array<[SoundName, string]> = [];
+  private sfxBus: GainNode | null = null;
+  private musicBus: GainNode | null = null;
+  /** Rendered samples, kept until an AudioBuffer exists for them. */
+  private sfxSamples = new Map<SoundName, Float32Array>();
+  private trackSamples = new Map<MusicName, Float32Array>();
+  private sfxBuffers = new Map<SoundName, AudioBuffer>();
+  private trackBuffers = new Map<MusicName, AudioBuffer>();
+  private music: PlayingMusic | null = null;
+  /** The track the scene asked for, started as soon as the browser allows audio. */
+  private wanted: MusicName | null = null;
+  private ducked = false;
   private _muted = getFlag(MUTE_KEY);
   private _volume = Math.round(Math.min(MAX_VOLUME, Math.max(0, getNumber(VOLUME_KEY, DEFAULT_VOLUME))));
 
@@ -71,31 +69,41 @@ export class AudioManager {
     return this._volume;
   }
 
+  /**
+   * Renders every effect and track. Needs no audio context, so it runs while
+   * the loading screen is up; it yields between tracks to keep that screen moving.
+   */
+  async prepare(): Promise<void> {
+    for (const name of Object.keys(SFX) as SoundName[]) this.sfx(name);
+    for (const name of Object.keys(TRACKS) as MusicName[]) {
+      await nextTask();
+      this.track(name);
+    }
+  }
+
   /** Browsers only allow audio after a user gesture; call this from one. */
   unlock(): void {
     if (!this.ctx) {
       const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Ctor) return;
-      this.ctx = new Ctor();
-      this.master = this.ctx.createGain();
+      const ctx = new Ctor();
+      this.ctx = ctx;
+      this.master = ctx.createGain();
       this.master.gain.value = this.gain();
-      this.master.connect(this.ctx.destination);
-      this.noise = this.makeNoise(this.ctx);
-      for (const [name, url] of this.pendingLoads) void this.load(name, url);
-      this.pendingLoads = [];
+      this.master.connect(ctx.destination);
+      this.sfxBus = ctx.createGain();
+      this.sfxBus.connect(this.master);
+      this.musicBus = ctx.createGain();
+      this.musicBus.gain.value = this.ducked ? MUSIC_DUCKED : MUSIC_LEVEL;
+      this.musicBus.connect(this.master);
+      // no sound from a hidden tab
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) void ctx.suspend();
+        else void ctx.resume();
+      });
+      this.playMusic(this.wanted);
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
-  }
-
-  /** Registers a sound file that overrides the synth with the same name. */
-  async load(name: SoundName, url: string): Promise<void> {
-    if (!this.ctx) {
-      this.pendingLoads.push([name, url]);
-      return;
-    }
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to load sound ${url}: ${res.status}`);
-    this.buffers.set(name, await this.ctx.decodeAudioData(await res.arrayBuffer()));
   }
 
   toggleMute(): boolean {
@@ -116,46 +124,93 @@ export class AudioManager {
 
   play(name: SoundName): void {
     const ctx = this.ctx;
-    const master = this.master;
-    if (!ctx || !master || this._muted || this._volume === 0) return;
-
-    const buffer = this.buffers.get(name);
-    if (buffer) {
-      const src = ctx.createBufferSource();
-      src.buffer = buffer;
-      src.connect(master);
-      src.start();
-      return;
+    const bus = this.sfxBus;
+    if (!ctx || !bus || this._muted || this._volume === 0) return;
+    let buffer = this.sfxBuffers.get(name);
+    if (!buffer) {
+      buffer = this.toBuffer(this.sfx(name));
+      this.sfxBuffers.set(name, buffer);
+      this.sfxSamples.delete(name);
     }
-
-    const def: SynthDef = SOUNDS[name];
-    const t = ctx.currentTime;
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(def.volume ?? 0.25, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + def.duration);
-    gain.connect(master);
-
-    let src: AudioScheduledSourceNode;
-    if (def.wave === "noise") {
-      const s = ctx.createBufferSource();
-      s.buffer = this.noise;
-      src = s;
-    } else {
-      const osc = ctx.createOscillator();
-      osc.type = def.wave;
-      osc.frequency.setValueAtTime(def.from, t);
-      osc.frequency.exponentialRampToValueAtTime(Math.max(1, def.to), t + def.duration);
-      src = osc;
-    }
-    src.connect(gain);
-    src.start(t);
-    src.stop(t + def.duration);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(bus);
+    src.start();
   }
 
-  private makeNoise(ctx: AudioContext): AudioBuffer {
-    const buf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    return buf;
+  /** Switches the looping background music; null stops it. Safe to call before audio is unlocked. */
+  playMusic(name: MusicName | null): void {
+    this.wanted = name;
+    const ctx = this.ctx;
+    if (!ctx || !this.musicBus) return;
+    if (this.music?.name === name) return;
+    this.stopMusic();
+    if (!name) return;
+
+    let buffer = this.trackBuffers.get(name);
+    if (!buffer) {
+      buffer = this.toBuffer(this.track(name));
+      this.trackBuffers.set(name, buffer);
+      this.trackSamples.delete(name);
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    const gain = ctx.createGain();
+    const t = ctx.currentTime;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(1, t + MUSIC_FADE_IN);
+    source.connect(gain);
+    gain.connect(this.musicBus);
+    source.start();
+    this.music = { name, source, gain };
+  }
+
+  /** Turns the music down (paused) or back up; the effects are not affected. */
+  duckMusic(ducked: boolean): void {
+    this.ducked = ducked;
+    if (this.ctx && this.musicBus) {
+      this.musicBus.gain.setTargetAtTime(ducked ? MUSIC_DUCKED : MUSIC_LEVEL, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  private stopMusic(): void {
+    const ctx = this.ctx;
+    const playing = this.music;
+    this.music = null;
+    if (!ctx || !playing) return;
+    const t = ctx.currentTime;
+    playing.gain.gain.cancelScheduledValues(t);
+    playing.gain.gain.setValueAtTime(playing.gain.gain.value, t);
+    playing.gain.gain.linearRampToValueAtTime(0, t + MUSIC_FADE_OUT);
+    playing.source.stop(t + MUSIC_FADE_OUT + 0.05);
+    playing.source.onended = () => {
+      playing.source.disconnect();
+      playing.gain.disconnect();
+    };
+  }
+
+  private sfx(name: SoundName): Float32Array {
+    let samples = this.sfxSamples.get(name);
+    if (!samples) {
+      samples = renderSfx(name);
+      this.sfxSamples.set(name, samples);
+    }
+    return samples;
+  }
+
+  private track(name: MusicName): Float32Array {
+    let samples = this.trackSamples.get(name);
+    if (!samples) {
+      samples = renderTrack(TRACKS[name]);
+      this.trackSamples.set(name, samples);
+    }
+    return samples;
+  }
+
+  private toBuffer(samples: Float32Array): AudioBuffer {
+    const buffer = this.ctx!.createBuffer(1, samples.length, SAMPLE_RATE);
+    buffer.getChannelData(0).set(samples);
+    return buffer;
   }
 }

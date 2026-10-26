@@ -1,10 +1,14 @@
 /**
  * Headless smoke test: runs every game with random input for a few simulated
- * minutes against a no-op canvas, and walks the hallway -> game -> hallway flow.
+ * minutes against a no-op canvas, walks the hallway -> game -> hallway flow,
+ * and renders every sound effect and music track.
  * Catches crashes and NaN positions, not gameplay quality.
  *
  *   npm run smoke
  */
+import { renderTrack } from "../src/audio/music";
+import { renderSfx, SFX, type SoundName } from "../src/audio/sfx";
+import { TRACKS, type MusicName } from "../src/audio/tracks";
 import { STEP } from "../src/engine/constants";
 import type { GameServices } from "../src/engine/game";
 import { GameScene } from "../src/engine/gameScene";
@@ -14,11 +18,14 @@ import { HallwayScene } from "../src/hallway/HallwayScene";
 import { GAMES } from "../src/games/registry";
 
 const noop = () => {};
-// any method call or property access on the context is accepted and ignored
-const ctx = new Proxy({} as CanvasRenderingContext2D, {
-  get: (_t, prop) => (prop === "measureText" ? () => ({ width: 0 }) : noop),
+// any method call or property access on the context is accepted and ignored; calls return the
+// context itself so things like gradients (createLinearGradient(...).addColorStop(...)) also work
+const ctx: CanvasRenderingContext2D = new Proxy({} as CanvasRenderingContext2D, {
+  get: (_t, prop) => (prop === "measureText" ? () => ({ width: 0 }) : () => ctx),
   set: () => true,
 });
+// pictures are painted into small canvases on first use; give them the same no-op context
+(globalThis as { document?: unknown }).document = { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) };
 
 const KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "KeyX"];
 
@@ -37,7 +44,7 @@ function makeServices() {
   const win = new FakeWindow();
   const input = new Input();
   input.attach(win as unknown as Window);
-  const audio = { muted: false, volume: 7, play: noop, unlock: noop, toggleMute: () => false, changeVolume: () => 7 } as unknown as AudioManager;
+  const audio = { muted: false, volume: 7, play: noop, unlock: noop, playMusic: noop, duckMusic: noop, toggleMute: () => false, changeVolume: () => 7 } as unknown as AudioManager;
   return { services: { input, audio } as GameServices, win };
 }
 
@@ -157,6 +164,31 @@ for (const info of GAMES) {
   } catch (err) {
     failures++;
     console.log(`FAIL hallway flow: ${(err as Error).message}`);
+  }
+}
+
+// every effect and track renders to finite, audible, unclipped samples
+{
+  const check = (label: string, samples: Float32Array, loop: boolean) => {
+    let peak = 0;
+    for (const v of samples) {
+      if (!Number.isFinite(v)) throw new Error(`${label}: non-finite sample`);
+      peak = Math.max(peak, Math.abs(v));
+    }
+    if (peak < 0.05) throw new Error(`${label}: almost silent (peak ${peak.toFixed(3)})`);
+    if (peak > 1) throw new Error(`${label}: clips (peak ${peak.toFixed(3)})`);
+    // a loop that starts where it ended sounds seamless; a jump here would click once per repeat
+    if (loop && Math.abs(samples[0] - samples[samples.length - 1]) > 0.1) throw new Error(`${label}: loop seam jumps`);
+  };
+  try {
+    const sounds = Object.keys(SFX) as SoundName[];
+    const tracks = Object.keys(TRACKS) as MusicName[];
+    for (const name of sounds) check(`sfx ${name}`, renderSfx(name), false);
+    for (const name of tracks) check(`music ${name}`, renderTrack(TRACKS[name]), true);
+    console.log(`ok   audio renders (${sounds.length} effects, ${tracks.length} tracks)`);
+  } catch (err) {
+    failures++;
+    console.log(`FAIL audio: ${(err as Error).message}`);
   }
 }
 

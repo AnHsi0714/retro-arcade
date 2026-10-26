@@ -4,10 +4,15 @@ import { Keys } from "../../engine/input";
 import { chance, pick, randInt } from "../../engine/math";
 import { tr } from "../../engine/i18n";
 import { blink, COLORS, drawText } from "../../engine/ui";
+import { dirIndex, type Baked } from "../../art/baked";
+import { SNAKE_SPRITES, snakeBoard } from "./art";
 
 const CELL = 8;
 const COLS = FIELD.w / CELL; // 60
 const ROWS = FIELD.h / CELL; // 32
+
+const BOARD = snakeBoard(COLS, ROWS, false);
+const BOARD_GHOST = snakeBoard(COLS, ROWS, true);
 
 const START_LENGTH = 4;
 const BASE_INTERVAL = 0.11;
@@ -125,30 +130,36 @@ export class SnakeGame implements ArcadeGame {
   }
 
   render(g: CanvasRenderingContext2D): void {
-    // walls
-    g.fillStyle = this.ghostTime > 0 && blink(this.time, 4) ? "#1d4a52" : "#2e2e4e";
-    g.fillRect(FIELD.x, FIELD.y, FIELD.w, CELL);
-    g.fillRect(FIELD.x, FIELD.y + FIELD.h - CELL, FIELD.w, CELL);
-    g.fillRect(FIELD.x, FIELD.y, CELL, FIELD.h);
-    g.fillRect(FIELD.x + FIELD.w - CELL, FIELD.y, CELL, FIELD.h);
+    (this.ghostTime > 0 && blink(this.time, 4) ? BOARD_GHOST : BOARD).draw(g, FIELD.x, FIELD.y);
 
     for (const o of this.obstacles) {
       if (o.warn > 0) {
-        if (blink(this.time, 6)) this.fillCell(g, o, "#6a2a2a", 1);
+        if (blink(this.time, 6)) {
+          g.globalAlpha = 0.5;
+          this.drawSprite(g, SNAKE_SPRITES.block, o);
+          g.globalAlpha = 1;
+          g.strokeStyle = COLORS.danger;
+          g.strokeRect(FIELD.x + o.x * CELL + 0.5, FIELD.y + o.y * CELL + 0.5, CELL - 1, CELL - 1);
+        }
       } else {
-        this.fillCell(g, o, BLOCK_COLOR, 0);
+        this.drawSprite(g, SNAKE_SPRITES.block, o);
       }
     }
 
-    this.fillCell(g, this.apple, APPLE_COLOR, 1);
+    this.drawSprite(g, SNAKE_SPRITES.apple, this.apple);
     if (this.power && (this.power.ttl > 2 || blink(this.time, 6))) {
-      this.fillCell(g, this.power, POWER_COLORS[this.power.kind], 0);
+      this.drawSprite(g, SNAKE_SPRITES.power[this.power.kind], this.power);
     }
 
     const visible = this.dying <= 0 || blink(this.time, 8);
     if (visible) {
-      const bodyColor = this.ghostTime > 0 ? "#5ef0ff" : this.speedTime > 0 ? "#ffd84a" : "#3fbf5a";
-      this.body.forEach((c, i) => this.fillCell(g, c, i === 0 ? "#b6ffbf" : bodyColor, 1));
+      const set = SNAKE_SPRITES[this.ghostTime > 0 ? "ghost" : this.speedTime > 0 ? "speed" : "normal"];
+      const last = this.body.length - 1;
+      this.body.forEach((c, i) => {
+        if (i === 0) this.drawSprite(g, set.head[dirIndex(this.dir.x, this.dir.y)], c);
+        else if (i === last) this.drawSprite(g, set.tail[this.tailDirection()], c);
+        else this.drawSprite(g, set.body[i % 2], c);
+      });
     }
 
     if (this.ready > 0) {
@@ -320,8 +331,18 @@ export class SnakeGame implements ArcadeGame {
     return { x: -1, y: -1 };
   }
 
-  private fillCell(g: CanvasRenderingContext2D, c: Cell, color: string, inset: number): void {
-    g.fillStyle = color;
-    g.fillRect(FIELD.x + c.x * CELL + inset, FIELD.y + c.y * CELL + inset, CELL - inset * 2, CELL - inset * 2);
+  private drawSprite(g: CanvasRenderingContext2D, sprite: Baked, c: Cell): void {
+    sprite.draw(g, FIELD.x + c.x * CELL, FIELD.y + c.y * CELL);
+  }
+
+  /** Which way the tail points toward the rest of the body (index for the tail sprites). */
+  private tailDirection(): number {
+    const n = this.body.length;
+    let dx = this.body[n - 2].x - this.body[n - 1].x;
+    let dy = this.body[n - 2].y - this.body[n - 1].y;
+    // a ghost snake can be split across the wrapped edge; the direction is then the other way round
+    if (Math.abs(dx) > 1) dx = -Math.sign(dx);
+    if (Math.abs(dy) > 1) dy = -Math.sign(dy);
+    return dirIndex(dx, dy);
   }
 }

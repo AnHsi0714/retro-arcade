@@ -4,6 +4,8 @@ import { Keys } from "../../engine/input";
 import { chance, circleRectOverlap, clamp, pick, rand, rectsOverlap, type Rect } from "../../engine/math";
 import { tr } from "../../engine/i18n";
 import { COLORS, drawText } from "../../engine/ui";
+import { capsule } from "../../art/draw";
+import { BALL, BOSS, BOSS_EYE, BOSS_FLASH, BOSS_H, BOSS_SHOT, BOSS_W, BRICK_COLORS, brickSprite, breakoutBoard, paddleSprite, type BrickKind } from "./art";
 import { LEVELS } from "./levels";
 
 const WALL = 8;
@@ -35,15 +37,12 @@ const WIDE_DURATION = 12;
 const START_LIVES = 3;
 const CLEAR_TIME = 1.5;
 
-const BOSS_W = 80;
-const BOSS_H = 20;
 const BOSS_HP = 24;
 const BOSS_Y = FIELD.y + 18;
 const BOSS_FIRE_INTERVAL = 1.6;
 const BOSS_SHOT_SPEED = 95;
 const STUN_TIME = 1;
 
-type BrickKind = "1" | "2" | "3" | "X" | "S" | "M";
 type DropKind = "multi" | "wide" | "life";
 
 interface Brick extends Rect {
@@ -86,16 +85,9 @@ interface MovingRow {
   max: number;
 }
 
+const BOARD = breakoutBoard(FIELD.w, FIELD.h, WALL);
 const BRICK_HP: Record<BrickKind, number> = { "1": 1, "2": 2, "3": 3, X: 1, S: Infinity, M: 1 };
 const BRICK_SCORE: Record<BrickKind, number> = { "1": 10, "2": 20, "3": 30, X: 15, S: 50, M: 25 };
-const BRICK_COLORS: Record<BrickKind, string> = {
-  "1": "#4fa3ff",
-  "2": "#5fd36a",
-  "3": "#e0c341",
-  X: "#ff6a3a",
-  S: "#9a9aae",
-  M: "#d65cff",
-};
 const DROP_COLORS: Record<DropKind, string> = { multi: "#5ef0ff", wide: "#6cff7a", life: "#ff7ab8" };
 const DROP_LABELS: Record<DropKind, string> = { multi: "M", wide: "W", life: "+" };
 
@@ -165,41 +157,30 @@ export class BreakoutGame implements ArcadeGame {
   }
 
   render(g: CanvasRenderingContext2D): void {
-    g.fillStyle = "#2e2e4e";
-    g.fillRect(FIELD.x, FIELD.y, WALL, FIELD.h);
-    g.fillRect(RIGHT, FIELD.y, WALL, FIELD.h);
-    g.fillRect(FIELD.x, FIELD.y, FIELD.w, WALL);
+    BOARD.draw(g, FIELD.x, FIELD.y);
 
-    for (const b of this.bricks) {
-      g.fillStyle = BRICK_COLORS[b.kind];
-      g.globalAlpha = b.kind === "2" || b.kind === "3" ? 0.45 + 0.55 * (b.hp / BRICK_HP[b.kind]) : 1;
-      g.fillRect(Math.round(b.x) + 1, b.y + 1, b.w - 2, b.h - 2);
-    }
-    g.globalAlpha = 1;
+    for (const b of this.bricks) brickSprite(b.kind, b.hp).draw(g, Math.round(b.x) + 1, b.y + 1);
 
     if (this.boss) {
       const b = this.boss;
-      g.fillStyle = b.flash > 0 ? "#fff" : "#b13a6a";
-      g.fillRect(Math.round(b.x), b.y, b.w, b.h);
+      (b.flash > 0 ? BOSS_FLASH : BOSS).draw(g, b.x, b.y);
+      // the eye follows the paddle
+      const look = clamp((this.paddleX - (b.x + BOSS_W / 2)) / 60, -1, 1);
+      g.fillStyle = "#05050f";
+      g.fillRect(Math.round(b.x) + BOSS_EYE.x - 1 + Math.round(look * 2), b.y + BOSS_EYE.y - 1, 3, 3);
       g.fillStyle = "#300";
       g.fillRect(Math.round(b.x), b.y - 4, b.w, 2);
       g.fillStyle = COLORS.danger;
       g.fillRect(Math.round(b.x), b.y - 4, Math.round((b.w * b.hp) / BOSS_HP), 2);
     }
-    g.fillStyle = COLORS.danger;
-    for (const s of this.shots) g.fillRect(Math.round(s.x) - 2, Math.round(s.y) - 3, 4, 6);
+    for (const s of this.shots) BOSS_SHOT.draw(g, s.x - 2, s.y - 3);
 
-    for (const d of this.drops) {
-      g.fillStyle = DROP_COLORS[d.kind];
-      g.fillRect(Math.round(d.x) - 7, Math.round(d.y) - 4, 14, 8);
-      drawText(g, DROP_LABELS[d.kind], d.x, d.y - 4, { align: "center", color: "#000" });
-    }
+    for (const d of this.drops) capsule(DROP_LABELS[d.kind], DROP_COLORS[d.kind]).drawCentered(g, d.x, d.y);
 
-    g.fillStyle = this.stunTime > 0 ? "#666" : this.wideTime > 0 ? "#6cff7a" : "#f4f4f4";
-    g.fillRect(Math.round(this.paddleX - this.paddleW / 2), PADDLE_Y, this.paddleW, PADDLE_H);
+    const mode = this.stunTime > 0 ? "stunned" : this.wideTime > 0 ? "wide" : "normal";
+    paddleSprite(this.paddleW, mode).draw(g, this.paddleX - this.paddleW / 2, PADDLE_Y);
 
-    g.fillStyle = "#fff";
-    for (const b of this.balls) g.fillRect(Math.round(b.x - BALL_R), Math.round(b.y - BALL_R), BALL_R * 2, BALL_R * 2);
+    for (const b of this.balls) BALL.draw(g, b.x - BALL_R, b.y - BALL_R);
 
     if (this.stuck && this.clearTimer <= 0) {
       drawText(g, { en: `STAGE ${this.level}  -  SPACE TO LAUNCH`, zh: `第 ${this.level} 關　按 SPACE 發球` }, FIELD.w / 2, PADDLE_Y - 40, { align: "center", color: COLORS.dim });

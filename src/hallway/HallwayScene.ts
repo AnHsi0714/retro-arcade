@@ -1,4 +1,5 @@
 import { HEIGHT, WIDTH } from "../engine/constants";
+import { drawPixelText } from "../art/font";
 import type { GameInfo, GameResult, GameServices } from "../engine/game";
 import { Keys } from "../engine/input";
 import { clamp } from "../engine/math";
@@ -7,19 +8,34 @@ import { getHighScore } from "../engine/storage";
 import { tr } from "../engine/i18n";
 import { blink, COLORS, drawPanel, drawText, measureText, padScore } from "../engine/ui";
 import { getGame } from "../games/registry";
+import {
+  CABINET_H,
+  CABINET_W,
+  drawBackdrop,
+  drawCabinet,
+  drawDoor,
+  drawFloor,
+  drawLamp,
+  FLOOR_Y,
+  PLAYER_FRAMES,
+  PLAYER_FRAMES_LEFT,
+  PLAYER_H,
+  PLAYER_W as SPRITE_W,
+  PLANT,
+  POST,
+} from "./art";
 import { HALL_END_PADDING, MACHINES } from "./machines";
 
-const FLOOR_Y = 220;
 const WALL_THICKNESS = 16;
+/** Width of the player's body for walls; the sprite is a little wider. */
 const PLAYER_W = 12;
-const PLAYER_H = 24;
 const PLAYER_SPEED = 110;
 const PLAYER_ACCEL = 900;
-const CABINET_W = 56;
-const CABINET_H = 76;
 /** How close (px, center to center) the player must be to use a cabinet. */
 const USE_RANGE = 22;
 const START_X = 80;
+/** Walk animation frames per second; stand, left foot, stand, right foot make one cycle. */
+const WALK_FRAME_RATE = 12;
 
 interface Machine {
   info: GameInfo;
@@ -27,54 +43,9 @@ interface Machine {
   best: number;
 }
 
-/** A parallax layer of repeating placeholder shapes. */
-interface ParallaxLayer {
-  factor: number;
-  spacing: number;
-  draw: (g: CanvasRenderingContext2D, screenX: number, index: number) => void;
-}
-
-/** Cheap deterministic hash so parallax decorations vary per tile but stay stable. */
-function hash(n: number): number {
-  const s = Math.sin(n * 127.1) * 43758.5453;
-  return s - Math.floor(s);
-}
-
-const LAYERS: ParallaxLayer[] = [
-  {
-    // far: distant neon signs
-    factor: 0.25,
-    spacing: 90,
-    draw: (g, x, i) => {
-      const h = hash(i);
-      g.fillStyle = h > 0.5 ? "#2a1846" : "#16264a";
-      g.fillRect(x, 40 + h * 30, 50, 18);
-      g.fillStyle = h > 0.5 ? "#7a3bd1" : "#2f7ad1";
-      g.fillRect(x + 4, 46 + h * 30, 42 * (0.4 + h * 0.6), 2);
-    },
-  },
-  {
-    // mid: pillars along the back wall
-    factor: 0.6,
-    spacing: 120,
-    draw: (g, x) => {
-      g.fillStyle = "#1c1c34";
-      g.fillRect(x, 60, 14, FLOOR_Y - 60);
-      g.fillStyle = "#26264a";
-      g.fillRect(x + 2, 60, 2, FLOOR_Y - 60);
-    },
-  },
-];
-
-const FOREGROUND: ParallaxLayer = {
-  // near: rail in front of the player, scrolls faster than the floor
-  factor: 1.4,
-  spacing: 70,
-  draw: (g, x) => {
-    g.fillStyle = "#0c0c18";
-    g.fillRect(x, HEIGHT - 26, 6, 26);
-  },
-};
+/** Foreground posts scroll faster than the floor, which adds depth. */
+const FOREGROUND_FACTOR = 1.4;
+const POST_SPACING = 96;
 
 export class HallwayScene implements Scene {
   private machines: Machine[];
@@ -100,6 +71,8 @@ export class HallwayScene implements Scene {
   enter(): void {
     this.services.input.clear();
     for (const m of this.machines) m.best = getHighScore(m.info.id);
+    this.services.audio.playMusic("hallway");
+    this.services.audio.duckMusic(false);
     this.updateCamera();
   }
 
@@ -129,9 +102,11 @@ export class HallwayScene implements Scene {
     }
 
     if (Math.abs(this.vx) > 1) {
-      const before = Math.floor(this.walkTime * 6);
+      const before = Math.floor(this.walkTime * WALK_FRAME_RATE);
       this.walkTime += dt;
-      if (Math.floor(this.walkTime * 6) !== before) audio.play("step");
+      const after = Math.floor(this.walkTime * WALK_FRAME_RATE);
+      // a foot lands on the two stepping frames of the cycle, and the footstep sound follows it
+      if (after !== before && after % 2 === 1) audio.play("step");
     }
 
     const near = this.nearestMachine();
@@ -146,40 +121,36 @@ export class HallwayScene implements Scene {
   }
 
   render(g: CanvasRenderingContext2D): void {
-    // back wall
-    g.fillStyle = "#10101f";
-    g.fillRect(0, 0, WIDTH, FLOOR_Y);
-    for (const layer of LAYERS) this.drawLayer(g, layer);
+    drawBackdrop(g, this.camX);
+    drawFloor(g, this.camX);
 
-    // floor
-    g.fillStyle = "#24203a";
-    g.fillRect(0, FLOOR_Y, WIDTH, HEIGHT - FLOOR_Y);
-    g.fillStyle = "#302a4c";
-    const tile = 32;
-    for (let wx = Math.floor(this.camX / tile) * tile; wx < this.camX + WIDTH; wx += tile) {
-      g.fillRect(Math.round(wx - this.camX), FLOOR_Y, 1, HEIGHT - FLOOR_Y);
-    }
-
-    // end walls
-    g.fillStyle = "#3a3a5a";
+    // end walls and the doors beside them
+    g.fillStyle = "#0a0a18";
     g.fillRect(Math.round(-this.camX), 0, WALL_THICKNESS, HEIGHT);
     g.fillRect(Math.round(this.worldW - WALL_THICKNESS - this.camX), 0, WALL_THICKNESS, HEIGHT);
+    g.fillStyle = "#4ad7ff";
+    g.fillRect(Math.round(WALL_THICKNESS - 1 - this.camX), 0, 1, HEIGHT);
+    g.fillRect(Math.round(this.worldW - WALL_THICKNESS - this.camX), 0, 1, HEIGHT);
+    drawDoor(g, Math.round(WALL_THICKNESS + 18 - this.camX), "ENTRY", "#4ad7ff");
+    drawDoor(g, Math.round(this.worldW - WALL_THICKNESS - 58 - this.camX), "EXIT", "#6cff7a");
+
+    const near = this.nearestMachine();
+    for (const m of this.machines) drawLamp(g, Math.round(m.x - this.camX), m.info.color);
 
     // left-aligned near the left wall so nothing is cut off at the start of the hall
     const introX = WALL_THICKNESS + 12 - this.camX;
     const line1 = { en: "LEFT / RIGHT walk    UP / ENTER play", zh: "LEFT / RIGHT 走動　　UP / ENTER 遊玩" };
     const line2 = { en: "ESC pause   M mute   - / + volume   L 中文", zh: "ESC 暫停　M 靜音　- / + 音量　L English" };
-    const panelW = Math.max(measureText(g, line1), measureText(g, line2)) + 16;
-    drawPanel(g, introX - 8, 16, panelW, 56);
-    drawText(g, "RETRO ARCADE", introX, 24, { color: COLORS.accent, size: 16 });
-    drawText(g, line1, introX, 46, { color: COLORS.dim });
-    drawText(g, line2, introX, 58, { color: COLORS.dim });
+    const panelW = Math.max(measureText(g, line1), measureText(g, line2), 150) + 16;
+    drawPanel(g, introX - 8, 26, panelW, 56);
+    drawPixelText(g, "RETRO ARCADE", introX, 32, { color: COLORS.accent, scale: 2, shadow: "#6a5410" });
+    drawText(g, line1, introX, 56, { color: COLORS.dim });
+    drawText(g, line2, introX, 68, { color: COLORS.dim });
 
-    const near = this.nearestMachine();
     for (const m of this.machines) this.drawCabinet(g, m, m === near);
 
     this.drawPlayer(g);
-    this.drawLayer(g, FOREGROUND);
+    this.drawForeground(g);
 
     if (near) this.drawPrompt(g, near);
     if (this.toastTime > 0) {
@@ -206,55 +177,49 @@ export class HallwayScene implements Scene {
     this.camX = clamp(this.x - WIDTH / 2, 0, this.worldW - WIDTH);
   }
 
-  private drawLayer(g: CanvasRenderingContext2D, layer: ParallaxLayer): void {
-    const offset = this.camX * layer.factor;
-    const first = Math.floor(offset / layer.spacing) - 1;
-    const last = Math.ceil((offset + WIDTH) / layer.spacing) + 1;
-    for (let i = first; i <= last; i++) {
-      layer.draw(g, Math.round(i * layer.spacing - offset), i);
-    }
-  }
-
-  private drawCabinet(g: CanvasRenderingContext2D, m: Machine, highlighted: boolean): void {
+  private drawCabinet(g: CanvasRenderingContext2D, m: Machine, lit: boolean): void {
     const x = Math.round(m.x - CABINET_W / 2 - this.camX);
     if (x > WIDTH || x + CABINET_W < 0) return;
-    const y = FLOOR_Y - CABINET_H;
-
-    // placeholder cabinet: body, marquee, screen, control panel
-    g.fillStyle = m.info.color;
-    g.fillRect(x, y, CABINET_W, CABINET_H);
-    g.fillStyle = "#000";
-    g.fillRect(x + 4, y + 4, CABINET_W - 8, 10);
-    // marquee shows the first word; the prompt shows the full title
-    drawText(g, m.info.title.split(" ")[0].toUpperCase(), x + CABINET_W / 2, y + 5, { align: "center", size: 8 });
-    g.fillStyle = highlighted ? "#1e3a2a" : "#0a1a14";
-    g.fillRect(x + 6, y + 18, CABINET_W - 12, 26);
-    if (highlighted && blink(this.time, 3)) {
-      g.fillStyle = COLORS.good;
-      g.fillRect(x + 10, y + 28, CABINET_W - 20, 2);
-    }
-    g.fillStyle = "#222";
-    g.fillRect(x + 2, y + 48, CABINET_W - 4, 8);
-    if (highlighted) {
-      g.strokeStyle = COLORS.accent;
-      g.strokeRect(x - 1.5, y - 1.5, CABINET_W + 3, CABINET_H + 3);
-    }
-
+    drawCabinet(g, m.info, x, this.time, lit);
     if (m.best > 0) {
-      drawText(g, `${tr({ en: "HI", zh: "最高" })} ${padScore(m.best)}`, x + CABINET_W / 2, y - 12, { align: "center", color: COLORS.dim });
+      const label = `${tr({ en: "HI", zh: "最高" })} ${padScore(m.best)}`;
+      const w = Math.ceil(measureText(g, label)) + 8;
+      const y = FLOOR_Y - CABINET_H - 14;
+      // a solid backing keeps the small text readable against the city behind
+      drawPanel(g, Math.round(x + CABINET_W / 2 - w / 2), y - 2, w, 14);
+      drawText(g, label, x + CABINET_W / 2, y + 1, { align: "center", color: COLORS.dim });
     }
   }
 
   private drawPlayer(g: CanvasRenderingContext2D): void {
-    const x = Math.round(this.x - PLAYER_W / 2 - this.camX);
     const moving = Math.abs(this.vx) > 1;
-    const bob = moving && Math.floor(this.walkTime * 8) % 2 === 0 ? 1 : 0;
-    const y = FLOOR_Y - PLAYER_H - bob;
-    g.fillStyle = "#4ad7ff";
-    g.fillRect(x, y, PLAYER_W, PLAYER_H);
-    // facing marker stands in for a face until the sprite exists
-    g.fillStyle = "#fff";
-    g.fillRect(this.facing > 0 ? x + PLAYER_W - 4 : x + 1, y + 5, 3, 3);
+    const frame = moving ? [0, 1, 0, 2][Math.floor(this.walkTime * WALK_FRAME_RATE) % 4] : 0;
+    const bob = moving && frame === 0 ? 1 : 0;
+    const x = Math.round(this.x - SPRITE_W / 2 - this.camX);
+    g.fillStyle = "rgba(0, 0, 0, 0.35)";
+    g.fillRect(x + 1, FLOOR_Y - 1, SPRITE_W - 2, 3);
+    (this.facing > 0 ? PLAYER_FRAMES : PLAYER_FRAMES_LEFT)[frame].draw(g, x, FLOOR_Y - PLAYER_H - bob);
+  }
+
+  /** Rope posts and a plant in front of the player, scrolling faster than the floor. */
+  private drawForeground(g: CanvasRenderingContext2D): void {
+    const offset = this.camX * FOREGROUND_FACTOR;
+    const first = Math.floor(offset / POST_SPACING) - 1;
+    const last = Math.ceil((offset + WIDTH) / POST_SPACING) + 1;
+    const top = HEIGHT - 12;
+    for (let i = first; i <= last; i++) {
+      const x = i * POST_SPACING - offset;
+      if (i % 4 === 0) PLANT.draw(g, x - 16, HEIGHT - 36);
+      else {
+        g.strokeStyle = "#ff7ab8";
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(x + 3, top + 2);
+        g.quadraticCurveTo(x + POST_SPACING / 2, top + 10, x + POST_SPACING - 3, top + 2);
+        g.stroke();
+        POST.draw(g, x, top - 4);
+      }
+    }
   }
 
   private drawPrompt(g: CanvasRenderingContext2D, m: Machine): void {

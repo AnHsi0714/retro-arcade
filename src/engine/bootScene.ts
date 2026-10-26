@@ -1,3 +1,5 @@
+import { drawPixelText } from "../art/font";
+import { createSky, drawScrolling, SKYLINE_FAR, SKYLINE_NEAR } from "../art/skyline";
 import { HEIGHT, WIDTH } from "./constants";
 import type { GameServices } from "./game";
 import type { Scene } from "./scene";
@@ -8,7 +10,9 @@ import { blink, COLORS, drawPanel, drawText, FONT_SIZE, measureText } from "./ui
 /** The how-to block is secondary to the title, so it uses a smaller size than regular UI text. */
 const HELP_SIZE = 7;
 const HELP_LINE = 11;
-const TITLE_SIZE = 24;
+/** The logo is drawn in the pixel font: 7 pixel rows at scale 4. */
+const TITLE_SIZE = 28;
+const SKY = createSky(HEIGHT);
 const GROUP_GAP = 16;
 const DISCLAIMER_Y = HEIGHT - 20;
 
@@ -28,6 +32,8 @@ const HOW_TO_PLAY: Array<[Localized, Localized]> = [
 export class BootScene implements Scene {
   private time = 0;
   private ready = false;
+  /** Browsers only play sound after a key press, so the first press starts the music and the second enters. */
+  private started = false;
   private error: string | null = null;
   private readonly touch = isTouchDevice();
 
@@ -46,13 +52,26 @@ export class BootScene implements Scene {
     this.time += dt;
     if (this.ready && this.services.input.anyPressed()) {
       this.services.audio.play("confirm");
+      if (!this.started) {
+        this.started = true;
+        this.services.audio.playMusic("title");
+        return;
+      }
       this.onStart();
     }
   }
 
   render(g: CanvasRenderingContext2D): void {
-    g.fillStyle = COLORS.bg;
-    g.fillRect(0, 0, WIDTH, HEIGHT);
+    SKY.draw(g, 0, 0);
+    drawScrolling(g, SKYLINE_FAR, this.time * 5, 1, HEIGHT - SKYLINE_FAR.h);
+    drawScrolling(g, SKYLINE_NEAR, this.time * 9, 1, HEIGHT - SKYLINE_NEAR.h);
+    // dark haze at the bottom keeps the small text readable over the city lights
+    const haze = g.createLinearGradient(0, HEIGHT - 120, 0, HEIGHT);
+    haze.addColorStop(0, "rgba(8, 8, 26, 0)");
+    haze.addColorStop(0.6, "rgba(8, 8, 26, 0.9)");
+    haze.addColorStop(1, "rgba(8, 8, 26, 0.95)");
+    g.fillStyle = haze;
+    g.fillRect(0, HEIGHT - 120, WIDTH, 120);
     drawText(g, { en: "Inspired by classic arcades. Not affiliated with any original publisher.", zh: "受經典街機啟發，與任何原作公司無關。" }, WIDTH / 2, DISCLAIMER_Y, {
       align: "center",
       color: COLORS.dim,
@@ -63,7 +82,7 @@ export class BootScene implements Scene {
     const touchH = this.touch ? HELP_LINE + 4 : 0;
     const groupH = TITLE_SIZE + GROUP_GAP + panelH + touchH + GROUP_GAP + FONT_SIZE;
     let y = Math.round((DISCLAIMER_Y - 8 - groupH) / 2);
-    drawText(g, "RETRO ARCADE", WIDTH / 2, y, { align: "center", size: TITLE_SIZE, color: COLORS.accent });
+    drawPixelText(g, "RETRO ARCADE", WIDTH / 2, y, { align: "center", scale: 4, color: COLORS.accent, shadow: "#6a5410" });
     y += TITLE_SIZE + GROUP_GAP;
 
     if (this.error) {
@@ -99,7 +118,13 @@ export class BootScene implements Scene {
       });
       y += touchH;
     }
-    const start = this.touch ? { en: "TAP TO ENTER", zh: "點一下進入" } : { en: "PRESS ANY KEY TO ENTER", zh: "按任意鍵進入" };
+    const start = this.started
+      ? this.touch
+        ? { en: "TAP TO ENTER", zh: "點一下進入" }
+        : { en: "PRESS ANY KEY TO ENTER", zh: "按任意鍵進入" }
+      : this.touch
+        ? { en: "TAP TO START", zh: "點一下開始" }
+        : { en: "PRESS ANY KEY TO START", zh: "按任意鍵開始" };
     if (blink(this.time)) drawText(g, start, WIDTH / 2, y + GROUP_GAP, { align: "center" });
   }
 }

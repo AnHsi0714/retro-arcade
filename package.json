@@ -8,7 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "smoke": "esbuild scripts/smoke.ts --bundle --platform=node --format=esm --log-level=warning --outfile=node_modules/.cache/smoke.mjs && node node_modules/.cache/smoke.mjs"
+    "smoke": "esbuild scripts/smoke.ts --bundle --platform=node --format=esm --log-level=warning --outfile=node_modules/.cache/smoke.mjs && node node_modules/.cache/smoke.mjs",
+    "contrast": "esbuild scripts/contrast.ts --bundle --platform=node --format=esm --log-level=warning --outfile=node_modules/.cache/contrast.mjs && node node_modules/.cache/contrast.mjs",
+    "audio:export": "esbuild scripts/export-audio.ts --bundle --platform=node --format=esm --log-level=warning --outfile=node_modules/.cache/export-audio.mjs && node node_modules/.cache/export-audio.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.21.5",

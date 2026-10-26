@@ -82,6 +82,7 @@ export class GameScene implements Scene {
           this.mode = "paused";
           this.cursor = 0;
           audio.play("pause");
+          audio.duckMusic(true);
           return;
         }
         this.game.update(dt);
@@ -189,6 +190,8 @@ export class GameScene implements Scene {
     this.game = this.info.create();
     this.game.init(this.services);
     this.mode = "playing";
+    this.services.audio.playMusic(this.info.music ?? null);
+    this.services.audio.duckMusic(false);
   }
 
   /** Up/down moves the cursor; returns the chosen index on confirm, else -1. */
@@ -210,6 +213,7 @@ export class GameScene implements Scene {
 
   private resume(): void {
     this.mode = "playing";
+    this.services.audio.duckMusic(false);
     this.services.input.consume();
   }
 
@@ -218,7 +222,8 @@ export class GameScene implements Scene {
     this.cursor = 0;
     this.overTimer = 0;
     this.recordScore(score);
-    this.services.audio.play("gameOver");
+    this.services.audio.playMusic(null);
+    this.services.audio.play(this.newRecord ? "newRecord" : "gameOver");
   }
 
   private recordScore(score: number): void {

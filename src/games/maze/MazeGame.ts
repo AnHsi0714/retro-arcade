@@ -4,7 +4,12 @@ import { Keys } from "../../engine/input";
 import { mod, pick } from "../../engine/math";
 import { tr } from "../../engine/i18n";
 import { blink, COLORS, drawText } from "../../engine/ui";
+import { dirIndex } from "../../art/baked";
+import { CHASERS_ART, CHOMPER, GATE, mazeWalls, POWER_ORB, TRAP, type ChaserTint } from "./art";
 import { HOUSE_EXIT, HOUSE_SLOTS, MAZE, MAZE_H, MAZE_W, PLAYER_START, TUNNEL_ROW } from "./maze";
+
+const WALLS = mazeWalls(false);
+const WALLS_FLASH = mazeWalls(true);
 
 const TILE = 8;
 const OX = FIELD.x + Math.floor((FIELD.w - MAZE_W * TILE) / 2);
@@ -84,10 +89,10 @@ interface Chaser extends Mover {
 }
 
 const CHASERS = [
-  { name: "Blaze", color: "#ff4d4d", corner: { x: MAZE_W - 2, y: 1 } },
-  { name: "Pinch", color: "#ff9ad6", corner: { x: 1, y: 1 } },
+  { name: "Blaze", color: "#ff5a5a", corner: { x: MAZE_W - 2, y: 1 } },
+  { name: "Pinch", color: "#ff7ab8", corner: { x: 1, y: 1 } },
   { name: "Echo", color: "#5ef0ff", corner: { x: MAZE_W - 2, y: MAZE_H - 2 } },
-  { name: "Wisp", color: "#ffb04a", corner: { x: 1, y: MAZE_H - 2 } },
+  { name: "Wisp", color: "#ff9a3a", corner: { x: 1, y: MAZE_H - 2 } },
 ];
 
 const DOT_COLOR = "#f4d9b0";
@@ -175,29 +180,20 @@ export class MazeGame implements ArcadeGame {
   render(g: CanvasRenderingContext2D): void {
     const flashWalls = this.phase === "clear" && blink(this.time, 6);
     const gateClosing = this.gatesOpen && this.gateTimer < GATE_WARNING;
+    (flashWalls ? WALLS_FLASH : WALLS).draw(g, OX, OY);
     for (let y = 0; y < MAZE_H; y++) {
       for (let x = 0; x < MAZE_W; x++) {
         const ch = this.tiles[y][x];
         const px = OX + x * TILE;
         const py = OY + y * TILE;
-        if (ch === "#") {
-          g.fillStyle = flashWalls ? "#fff" : "#2b3fa8";
-          g.fillRect(px, py, TILE, TILE);
-        } else if (ch === ".") {
+        if (ch === ".") {
           g.fillStyle = DOT_COLOR;
           g.fillRect(px + 3, py + 3, 2, 2);
         } else if (ch === "o") {
-          if (blink(this.time, 4)) {
-            g.fillStyle = DOT_COLOR;
-            g.fillRect(px + 1, py + 1, 6, 6);
-          }
-        } else if (ch === "-") {
-          g.fillStyle = "#ff9ad6";
-          g.fillRect(px, py + 3, TILE, 2);
+          if (blink(this.time, 4)) POWER_ORB.draw(g, px + 1, py + 1);
         } else if (ch === "G") {
           if (!this.gatesOpen) {
-            g.fillStyle = GATE_COLOR;
-            g.fillRect(px, py, TILE, TILE);
+            GATE.draw(g, px, py);
           } else if (gateClosing && blink(this.time, 8)) {
             g.strokeStyle = GATE_COLOR;
             g.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
@@ -206,26 +202,15 @@ export class MazeGame implements ArcadeGame {
       }
     }
 
-    for (const trap of this.traps) {
-      g.strokeStyle = COLORS.good;
-      const px = OX + trap.x * TILE;
-      const py = OY + trap.y * TILE;
-      g.strokeRect(px + 1.5, py + 1.5, TILE - 3, TILE - 3);
-    }
+    for (const trap of this.traps) TRAP.draw(g, OX + trap.x * TILE, OY + trap.y * TILE);
 
     for (const c of this.chasers) this.drawChaser(g, c);
 
     if (this.phase !== "dying" || blink(this.time, 8)) {
       const p = this.pixel(this.player);
-      g.fillStyle = "#ffe84a";
-      g.beginPath();
       // the mouth opens and closes while moving
-      const mouth = this.player.moving ? Math.abs(Math.sin(this.time * 14)) * 0.7 : 0.2;
-      const facing = Math.atan2(this.player.dir.y, this.player.dir.x);
-      g.moveTo(p.x, p.y);
-      g.arc(p.x, p.y, 4, facing + mouth, facing + Math.PI * 2 - mouth);
-      g.closePath();
-      g.fill();
+      const open = this.player.moving ? Math.abs(Math.sin(this.time * 14)) > 0.4 : false;
+      CHOMPER[dirIndex(this.player.dir.x, this.player.dir.y)][open ? 1 : 0].drawCentered(g, p.x, p.y);
     }
 
     if (this.phase === "ready") {
@@ -236,9 +221,8 @@ export class MazeGame implements ArcadeGame {
     const sx = OX + MAZE_W * TILE + 12;
     drawText(g, { en: "CHASERS", zh: "追逐者" }, sx, OY, { color: COLORS.dim });
     CHASERS.forEach((info, i) => {
-      g.fillStyle = info.color;
-      g.fillRect(sx, OY + 14 + i * 12, 6, 6);
-      drawText(g, info.name.toUpperCase(), sx + 10, OY + 13 + i * 12);
+      CHASERS_ART[i].normal[0].draw(g, sx, OY + 12 + i * 12);
+      drawText(g, info.name.toUpperCase(), sx + 14, OY + 13 + i * 12);
     });
     drawText(g, `${tr({ en: "TRAPS", zh: "陷阱" })} ${this.trapsLeft}`, sx, OY + 70, { color: COLORS.good });
     drawText(g, this.gatesOpen ? { en: "GATES OPEN", zh: "閘門開啟" } : { en: "GATES SHUT", zh: "閘門關閉" }, sx, OY + 82, { color: "#b49aff" });
@@ -604,16 +588,25 @@ export class MazeGame implements ArcadeGame {
     x = Math.round(x);
     y = Math.round(y);
 
+    const scared = c.frightened && c.mode !== "eaten";
     if (c.mode !== "eaten") {
-      let color = c.color;
-      if (c.frightened) color = this.frightTimer < 2 && blink(this.time, 6) ? "#f4f4f4" : "#3a4aff";
-      if (c.mode === "stunned" && blink(this.time, 4)) color = "#666";
-      g.fillStyle = color;
-      g.fillRect(x - 4, y - 4, 8, 8);
+      let tint: ChaserTint = "normal";
+      if (scared) tint = this.frightTimer < 2 && blink(this.time, 6) ? "flash" : "scared";
+      if (c.mode === "stunned" && blink(this.time, 4)) tint = "stunned";
+      CHASERS_ART[c.id][tint][Math.floor(this.time * 6 + c.id) % 2].drawCentered(g, x, y);
     }
-    // eyes stay visible even when eaten
-    g.fillStyle = "#fff";
-    g.fillRect(x - 3 + c.dir.x, y - 2 + c.dir.y, 2, 2);
-    g.fillRect(x + 1 + c.dir.x, y - 2 + c.dir.y, 2, 2);
+
+    // eyes stay visible even when eaten; their pupils look where the chaser is heading
+    for (const ex of [x - 3, x + 1]) {
+      g.fillStyle = "#fff";
+      g.fillRect(ex, y - 2, 2, 3);
+      g.fillStyle = scared ? "#3a4aff" : "#05050f";
+      g.fillRect(ex + (c.dir.x > 0 ? 1 : 0), y - 2 + (c.dir.y > 0 ? 1 : 0), 1, 2);
+    }
+    if (scared) {
+      // a worried zigzag mouth
+      g.fillStyle = "#fff";
+      for (let i = 0; i < 6; i++) g.fillRect(x - 3 + i, y + 2 + (i % 2), 1, 1);
+    }
   }
 }

@@ -1,9 +1,15 @@
 import type { GameInfo } from "../engine/game";
+import { drawBreakoutPreview } from "./breakout/art";
 import { BREAKOUT_LEGEND, BreakoutGame } from "./breakout/BreakoutGame";
+import { drawDefenderPreview } from "./defender/art";
 import { DEFENDER_LEGEND, DefenderGame } from "./defender/DefenderGame";
+import { drawMazePreview } from "./maze/art";
 import { MAZE_LEGEND, MazeGame } from "./maze/MazeGame";
+import { drawMeteorPreview } from "./meteor/art";
 import { METEOR_LEGEND, MeteorGame } from "./meteor/MeteorGame";
+import { drawSnakePreview } from "./snake/art";
 import { SNAKE_LEGEND, SnakeGame } from "./snake/SnakeGame";
+import { drawTestPreview } from "./test/art";
 import { TestGame } from "./test/TestGame";
 
 export const GAMES: GameInfo[] = [
@@ -17,6 +23,7 @@ export const GAMES: GameInfo[] = [
       { en: "Pick up the yellow coins. Press X to end the run.", zh: "撿黃色金幣，按 X 結束這局。" },
     ],
     color: "#7a7a8c",
+    preview: drawTestPreview,
     create: () => new TestGame(),
   },
   {
@@ -30,7 +37,9 @@ export const GAMES: GameInfo[] = [
       { en: "Power apples appear for a few seconds: grab them fast.", zh: "道具蘋果只出現幾秒，要快點吃。" },
     ],
     legend: SNAKE_LEGEND,
+    music: "snake",
     color: "#3fbf5a",
+    preview: drawSnakePreview,
     create: () => new SnakeGame(),
   },
   {
@@ -44,12 +53,15 @@ export const GAMES: GameInfo[] = [
       { en: "Catch falling capsules. Stage 4 has a boss: its shots stun you.", zh: "接住掉落的膠囊。第 4 關有魔王，被它打中會暫時不能動。" },
     ],
     legend: BREAKOUT_LEGEND,
+    music: "breakout",
     color: "#d9573b",
+    preview: drawBreakoutPreview,
     create: () => new BreakoutGame(),
   },
   {
     id: "defender",
     title: "Star Defender",
+    marquee: "DEFENDER",
     tagline: { en: "Hold the line", zh: "守住防線" },
     controls: { en: "< > move  SPACE fire (hold)", zh: "< > 移動　SPACE 射擊（可按住）" },
     howTo: [
@@ -58,7 +70,9 @@ export const GAMES: GameInfo[] = [
       { en: "Getting hit costs a life and one gun level.", zh: "被擊中會少一條命，武器降一級。" },
     ],
     legend: DEFENDER_LEGEND,
+    music: "defender",
     color: "#4a6bdc",
+    preview: drawDefenderPreview,
     create: () => new DefenderGame(),
   },
   {
@@ -72,7 +86,9 @@ export const GAMES: GameInfo[] = [
       { en: "Edges wrap around. From wave 3 a gravity well appears.", zh: "畫面邊緣會互通。第 3 波起會出現重力井。" },
     ],
     legend: METEOR_LEGEND,
+    music: "meteor",
     color: "#c48a2c",
+    preview: drawMeteorPreview,
     create: () => new MeteorGame(),
   },
   {
@@ -86,7 +102,9 @@ export const GAMES: GameInfo[] = [
       { en: "3 traps per maze. Side tunnels wrap around.", zh: "每座迷宮有 3 個陷阱。兩側通道會互通。" },
     ],
     legend: MAZE_LEGEND,
+    music: "maze",
     color: "#d6c22f",
+    preview: drawMazePreview,
     create: () => new MazeGame(),
   },
 ];

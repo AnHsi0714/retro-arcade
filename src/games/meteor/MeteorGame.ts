@@ -4,6 +4,8 @@ import { Keys } from "../../engine/input";
 import { chance, circlesOverlap, dist, pick, rand, TAU, wrap } from "../../engine/math";
 import { tr } from "../../engine/i18n";
 import { blink, COLORS, drawText } from "../../engine/ui";
+import { capsule } from "../../art/draw";
+import { drawMeteor, drawShip, drawWell, meteorBackdrop, METEOR_COLORS, UFO, type MeteorKind } from "./art";
 
 const SHIP_R = 6;
 const TURN_SPEED = 4.2;
@@ -43,7 +45,6 @@ const UFO_FIRE = 1.4;
 const UFO_BULLET_SPEED = 140;
 const UFO_SCORE = 200;
 
-type MeteorKind = "rock" | "blast" | "ice";
 type PickupKind = "spread" | "rapid";
 
 interface Body {
@@ -92,7 +93,7 @@ interface Particle extends Body {
   color: string;
 }
 
-const METEOR_COLORS: Record<MeteorKind, string> = { rock: "#d8d8e8", blast: "#ff8a3a", ice: "#7ae8ff" };
+const BACKDROP = meteorBackdrop(FIELD.w, FIELD.h);
 const PICKUP_COLORS: Record<PickupKind, string> = { spread: "#ffd84a", rapid: "#6cff7a" };
 const WELL_COLOR = "#b07aff";
 
@@ -166,50 +167,45 @@ export class MeteorGame implements ArcadeGame {
   }
 
   render(g: CanvasRenderingContext2D): void {
+    BACKDROP.draw(g, FIELD.x, FIELD.y);
     g.lineWidth = 1;
 
     for (const f of this.frosts) {
-      g.fillStyle = `rgba(122, 232, 255, ${0.12 * Math.min(1, f.ttl)})`;
+      const fade = Math.min(1, f.ttl);
+      const cloud = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, FROST_RADIUS);
+      cloud.addColorStop(0, `rgba(122, 232, 255, ${0.22 * fade})`);
+      cloud.addColorStop(1, `rgba(122, 232, 255, ${0.06 * fade})`);
+      g.fillStyle = cloud;
       g.beginPath();
       g.arc(f.x, f.y, FROST_RADIUS, 0, TAU);
       g.fill();
+      g.strokeStyle = `rgba(174, 240, 255, ${0.35 * fade})`;
+      g.stroke();
     }
 
-    if (this.well) {
-      const { x, y } = this.well;
-      g.strokeStyle = "#5a3a9a";
-      for (let i = 0; i < 3; i++) {
-        const r = WELL_CORE + ((this.time * 20 + i * 12) % 36);
-        g.beginPath();
-        g.arc(x, y, r, 0, TAU);
-        g.stroke();
-      }
-      g.fillStyle = WELL_COLOR;
-      g.beginPath();
-      g.arc(x, y, WELL_CORE, 0, TAU);
-      g.fill();
-    }
+    if (this.well) drawWell(g, this.well.x, this.well.y, WELL_CORE, this.time);
 
-    for (const m of this.meteors) this.drawMeteor(g, m);
+    for (const m of this.meteors) drawMeteor(g, m.x, m.y, METEOR_RADIUS[m.size], m.rot, m.shape, m.kind, this.time);
 
     for (const p of this.pickups) {
       if (p.ttl < 2 && !blink(this.time, 6)) continue;
-      g.fillStyle = PICKUP_COLORS[p.kind];
-      g.fillRect(Math.round(p.x) - 5, Math.round(p.y) - 5, 10, 10);
-      drawText(g, p.kind === "spread" ? "S" : "R", p.x, p.y - 4, { align: "center", color: "#000" });
+      capsule(p.kind === "spread" ? "S" : "R", PICKUP_COLORS[p.kind]).drawCentered(g, p.x, p.y);
     }
 
-    if (this.ufo) {
-      const u = this.ufo;
-      g.strokeStyle = COLORS.danger;
-      g.strokeRect(Math.round(u.x) - 9.5, Math.round(u.y) - 2.5, 19, 6);
-      g.strokeRect(Math.round(u.x) - 4.5, Math.round(u.y) - 6.5, 9, 4);
-    }
+    if (this.ufo) UFO[Math.floor(this.time * 6) % 2].drawCentered(g, this.ufo.x, this.ufo.y);
 
-    g.fillStyle = "#fff";
-    for (const b of this.bullets) g.fillRect(Math.round(b.x), Math.round(b.y), 2, 2);
-    g.fillStyle = COLORS.danger;
-    for (const b of this.ufoBullets) g.fillRect(Math.round(b.x) - 1, Math.round(b.y) - 1, 3, 3);
+    for (const b of this.bullets) {
+      g.fillStyle = "rgba(255, 255, 255, 0.22)";
+      g.fillRect(Math.round(b.x) - 2, Math.round(b.y) - 2, 5, 5);
+      g.fillStyle = "#fff";
+      g.fillRect(Math.round(b.x) - 1, Math.round(b.y) - 1, 2, 2);
+    }
+    for (const b of this.ufoBullets) {
+      g.fillStyle = "rgba(255, 90, 90, 0.3)";
+      g.fillRect(Math.round(b.x) - 2, Math.round(b.y) - 2, 5, 5);
+      g.fillStyle = COLORS.danger;
+      g.fillRect(Math.round(b.x) - 1, Math.round(b.y) - 1, 3, 3);
+    }
 
     for (const b of this.blasts) {
       const k = b.t / BLAST_TIME;
@@ -224,7 +220,10 @@ export class MeteorGame implements ArcadeGame {
       g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
     }
 
-    if (this.ship.alive && (this.invuln <= 0 || blink(this.time, 10))) this.drawShip(g);
+    if (this.ship.alive && (this.invuln <= 0 || blink(this.time, 10))) {
+      const { x, y, angle } = this.ship;
+      drawShip(g, x, y, angle, SHIP_R, this.isFrozen(), this.thrusting && blink(this.time, 20));
+    }
 
     if (this.waveDelay > 0 && this.wave > 0) {
       const next = this.wave + 1;
@@ -527,41 +526,5 @@ export class MeteorGame implements ArcadeGame {
       const s = rand(20, 90);
       this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.3, 0.8), color });
     }
-  }
-
-  private drawShip(g: CanvasRenderingContext2D): void {
-    const { x, y, angle } = this.ship;
-    const point = (a: number, r: number): [number, number] => [x + Math.cos(angle + a) * r, y + Math.sin(angle + a) * r];
-    g.strokeStyle = this.isFrozen() ? "#7ae8ff" : "#4ad7ff";
-    g.beginPath();
-    g.moveTo(...point(0, SHIP_R + 2));
-    g.lineTo(...point(2.5, SHIP_R));
-    g.lineTo(...point(Math.PI, SHIP_R * 0.4));
-    g.lineTo(...point(-2.5, SHIP_R));
-    g.closePath();
-    g.stroke();
-    if (this.thrusting && blink(this.time, 20)) {
-      g.strokeStyle = COLORS.accent;
-      g.beginPath();
-      g.moveTo(...point(2.8, SHIP_R * 0.6));
-      g.lineTo(...point(Math.PI, SHIP_R + 4));
-      g.lineTo(...point(-2.8, SHIP_R * 0.6));
-      g.stroke();
-    }
-  }
-
-  private drawMeteor(g: CanvasRenderingContext2D, m: Meteor): void {
-    const r = METEOR_RADIUS[m.size];
-    g.strokeStyle = METEOR_COLORS[m.kind];
-    g.beginPath();
-    m.shape.forEach((k, i) => {
-      const a = m.rot + (i / m.shape.length) * TAU;
-      const px = m.x + Math.cos(a) * r * k;
-      const py = m.y + Math.sin(a) * r * k;
-      if (i === 0) g.moveTo(px, py);
-      else g.lineTo(px, py);
-    });
-    g.closePath();
-    g.stroke();
   }
 }

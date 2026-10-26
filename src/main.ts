@@ -24,9 +24,9 @@ function showError(message: string): void {
 window.addEventListener("error", (e) => showError(`Error: ${e.message}`));
 window.addEventListener("unhandledrejection", (e) => showError(`Error: ${String(e.reason)}`));
 
-/** Loads assets before the title screen accepts input. Empty until stage 9 adds real files. */
-async function loadAssets(_audio: AudioManager): Promise<void> {
-  // e.g. await audio.load("shoot", `${import.meta.env.BASE_URL}sfx/shoot.wav`);
+/** Renders the synthesized sounds and music before the title screen accepts input. */
+async function loadAssets(audio: AudioManager): Promise<void> {
+  await audio.prepare();
 }
 
 function main(): void {

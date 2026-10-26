@@ -3,6 +3,7 @@ import type { ArcadeGame, GameServices, GameStatus } from "../../engine/game";
 import { Keys } from "../../engine/input";
 import { clamp, rand, rectsOverlap } from "../../engine/math";
 import { COLORS, drawText } from "../../engine/ui";
+import { COIN, TESTER } from "./art";
 
 const SIZE = 10;
 const SPEED = 120;
@@ -38,10 +39,8 @@ export class TestGame implements ArcadeGame {
       align: "center",
       color: COLORS.dim,
     });
-    g.fillStyle = COLORS.accent;
-    g.fillRect(this.coin.x, this.coin.y, this.coin.w, this.coin.h);
-    g.fillStyle = COLORS.text;
-    g.fillRect(Math.round(this.x), Math.round(this.y), SIZE, SIZE);
+    COIN.draw(g, this.coin.x, this.coin.y);
+    TESTER.draw(g, this.x, this.y);
   }
 
   destroy(): void {}

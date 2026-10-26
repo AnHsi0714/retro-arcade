@@ -4,6 +4,8 @@ import { Keys } from "../../engine/input";
 import { chance, clamp, pick, rand, rectsOverlap, TAU, type Rect } from "../../engine/math";
 import { tr } from "../../engine/i18n";
 import { blink, COLORS, drawText } from "../../engine/ui";
+import { capsule } from "../../art/draw";
+import { BOSS, BOSS_COLOR, BOSS_FLASH, BOSS_H, BOSS_W, ENEMIES, ENEMY_SHOT, PLAYER_SHIP, PLAYER_SHOT, SHIELD_SHADES, type EnemyKind } from "./art";
 
 const LEFT = FIELD.x + 8;
 const RIGHT = FIELD.x + FIELD.w - 8;
@@ -44,7 +46,6 @@ const DROP_SPEED = 50;
 const BOSS_EVERY = 4;
 const WAVE_CLEAR_TIME = 1.5;
 
-type EnemyKind = "grunt" | "bomber" | "sniper";
 type EnemyState = "formation" | "diving" | "returning";
 
 interface Enemy {
@@ -89,7 +90,9 @@ interface PowerDrop {
 const ENEMY_SCORE: Record<EnemyKind, number> = { grunt: 10, bomber: 20, sniper: 30 };
 const ENEMY_COLORS: Record<EnemyKind, string> = { grunt: "#6cff7a", bomber: "#ff9a3a", sniper: "#ff5ad0" };
 const SHIELD_COLOR = "#3fbf5a";
-const BOSS_COLOR = "#b13a6a";
+/** Stars drift down at these speeds (px/s), one speed per depth layer. */
+const STAR_SPEEDS = [4, 9, 18];
+const STAR_COLORS = ["#2a2a55", "#3f3f78", "#6a6aa8"];
 
 export const DEFENDER_LEGEND: LegendItem[] = [
   { color: ENEMY_COLORS.grunt, label: { en: "Grunt: shoots straight", zh: "步兵：直線射擊" } },
@@ -134,17 +137,22 @@ export class DefenderGame implements ArcadeGame {
   private drops: PowerDrop[] = [];
   private boss: Boss | null = null;
   private waveTimer = 0;
-  private stars: Array<[number, number]> = [];
+  /** x, y, depth layer */
+  private stars: Array<[number, number, number]> = [];
 
   init(services: GameServices): void {
     this.services = services;
-    for (let i = 0; i < 60; i++) this.stars.push([rand(0, FIELD.w), rand(FIELD.y, HEIGHT)]);
+    for (let i = 0; i < 70; i++) this.stars.push([rand(0, FIELD.w), rand(FIELD.y, HEIGHT), i % STAR_SPEEDS.length]);
     this.buildShields();
     this.nextWave();
   }
 
   update(dt: number): void {
     this.time += dt;
+    for (const star of this.stars) {
+      star[1] += STAR_SPEEDS[star[2]] * dt;
+      if (star[1] >= HEIGHT) star[1] -= FIELD.h;
+    }
     if (this.waveTimer > 0) {
       this.waveTimer -= dt;
       if (this.waveTimer <= 0) this.nextWave();
@@ -164,55 +172,47 @@ export class DefenderGame implements ArcadeGame {
   }
 
   render(g: CanvasRenderingContext2D): void {
-    g.fillStyle = "#33335a";
-    for (const [x, y] of this.stars) g.fillRect(Math.round(x), Math.round(y), 1, 1);
+    for (const [x, y, layer] of this.stars) {
+      g.fillStyle = STAR_COLORS[layer];
+      g.fillRect(Math.round(x), Math.round(y), layer === 2 ? 2 : 1, 1);
+    }
 
-    g.fillStyle = SHIELD_COLOR;
     for (const s of this.shields) {
       s.cells.forEach((alive, i) => {
         if (!alive) return;
         const cx = i % SHIELD_COLS;
         const cy = Math.floor(i / SHIELD_COLS);
+        g.fillStyle = SHIELD_SHADES[cy];
         g.fillRect(s.x + cx * SHIELD_CELL, SHIELD_Y + cy * SHIELD_CELL, SHIELD_CELL, SHIELD_CELL);
       });
     }
 
+    const frame = Math.floor(this.time * 2) % 2;
     for (const e of this.enemies) {
       const r = this.enemyRect(e);
-      g.fillStyle = ENEMY_COLORS[e.kind];
-      g.fillRect(Math.round(r.x), Math.round(r.y), r.w, r.h);
-      // two-frame "animation" placeholder
-      g.fillStyle = COLORS.bg;
-      const frame = Math.floor(this.time * 2) % 2;
-      g.fillRect(Math.round(r.x) + 3, Math.round(r.y) + 3 + frame, 2, 2);
-      g.fillRect(Math.round(r.x) + r.w - 5, Math.round(r.y) + 3 + frame, 2, 2);
+      ENEMIES[e.kind][frame].draw(g, r.x, r.y);
     }
 
     if (this.boss) {
       const b = this.boss;
-      g.fillStyle = b.flash > 0 ? "#fff" : BOSS_COLOR;
-      g.fillRect(Math.round(b.x), Math.round(b.y), b.w, b.h);
+      (b.flash > 0 ? BOSS_FLASH : BOSS).draw(g, b.x, b.y);
       g.fillStyle = COLORS.danger;
       g.fillRect(LEFT, FIELD.y + 4, Math.round(((RIGHT - LEFT) * b.hp) / b.maxHp), 3);
     }
 
     if (this.invuln <= 0 || blink(this.time, 10)) {
-      g.fillStyle = "#4ad7ff";
       const x = Math.round(this.playerX - PLAYER_W / 2);
-      g.fillRect(x, PLAYER_Y, PLAYER_W, PLAYER_H);
-      g.fillRect(x + 5, PLAYER_Y - 3, 3, 3);
+      PLAYER_SHIP.draw(g, x, PLAYER_Y - 3);
+      // engine flames flicker under the two nozzles
+      g.fillStyle = blink(this.time, 24) ? "#ffd84a" : "#ff9a3a";
+      g.fillRect(x + 4, PLAYER_Y + 8, 1, 2);
+      g.fillRect(x + 8, PLAYER_Y + 8, 1, 2);
     }
 
-    g.fillStyle = "#fff";
-    for (const b of this.bullets) g.fillRect(Math.round(b.x), Math.round(b.y), 1, 4);
-    g.fillStyle = COLORS.danger;
-    for (const b of this.enemyBullets) g.fillRect(Math.round(b.x) - 1, Math.round(b.y), 2, 4);
+    for (const b of this.bullets) PLAYER_SHOT.draw(g, b.x - 1, b.y - 1);
+    for (const b of this.enemyBullets) ENEMY_SHOT.draw(g, b.x - 1, b.y - 1);
 
-    for (const d of this.drops) {
-      g.fillStyle = COLORS.accent;
-      g.fillRect(Math.round(d.x) - 5, Math.round(d.y) - 4, 10, 8);
-      drawText(g, "P", d.x, d.y - 4, { align: "center", color: "#000" });
-    }
+    for (const d of this.drops) capsule("P", COLORS.accent).drawCentered(g, d.x, d.y);
 
     if (this.waveTimer > 0) {
       const next = this.wave + 1;
@@ -237,7 +237,7 @@ export class DefenderGame implements ArcadeGame {
     this.enemies = [];
     if (this.wave % BOSS_EVERY === 0) {
       const maxHp = 30 + this.wave * 3;
-      this.boss = { x: FIELD.w / 2 - 32, y: FIELD.y + 20, w: 64, h: 24, hp: maxHp, maxHp, t: 0, fire: 1.5, pattern: 0, flash: 0 };
+      this.boss = { x: FIELD.w / 2 - BOSS_W / 2, y: FIELD.y + 20, w: BOSS_W, h: BOSS_H, hp: maxHp, maxHp, t: 0, fire: 1.5, pattern: 0, flash: 0 };
     } else {
       for (let row = 0; row < ROWS; row++) {
         for (let col = 0; col < COLS; col++) {
