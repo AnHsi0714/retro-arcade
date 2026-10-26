@@ -4,7 +4,8 @@ import { Keys } from "../engine/input";
 import { clamp } from "../engine/math";
 import type { Scene } from "../engine/scene";
 import { getHighScore } from "../engine/storage";
-import { blink, COLORS, drawPanel, drawText, padScore } from "../engine/ui";
+import { tr } from "../engine/i18n";
+import { blink, COLORS, drawPanel, drawText, measureText, padScore } from "../engine/ui";
 import { getGame } from "../games/registry";
 import { HALL_END_PADDING, MACHINES } from "./machines";
 
@@ -104,7 +105,7 @@ export class HallwayScene implements Scene {
 
   /** Called by the app when the player walks away from a machine. */
   onReturn(result: GameResult): void {
-    if (result.newRecord) this.showToast(`NEW RECORD ${padScore(result.score)}!`);
+    if (result.newRecord) this.showToast(`${tr({ en: "NEW RECORD", zh: "新紀錄" })} ${padScore(result.score)}!`);
   }
 
   update(dt: number): void {
@@ -166,10 +167,13 @@ export class HallwayScene implements Scene {
 
     // left-aligned near the left wall so nothing is cut off at the start of the hall
     const introX = WALL_THICKNESS + 12 - this.camX;
-    drawPanel(g, introX - 8, 16, 214, 56);
+    const line1 = { en: "LEFT / RIGHT walk    UP / ENTER play", zh: "LEFT / RIGHT 走動　　UP / ENTER 遊玩" };
+    const line2 = { en: "ESC pause   M mute   - / + volume   L 中文", zh: "ESC 暫停　M 靜音　- / + 音量　L English" };
+    const panelW = Math.max(measureText(g, line1), measureText(g, line2)) + 16;
+    drawPanel(g, introX - 8, 16, panelW, 56);
     drawText(g, "RETRO ARCADE", introX, 24, { color: COLORS.accent, size: 16 });
-    drawText(g, "LEFT / RIGHT walk    UP / ENTER play", introX, 46, { color: COLORS.dim });
-    drawText(g, "ESC pause    M mute    - / + volume", introX, 58, { color: COLORS.dim });
+    drawText(g, line1, introX, 46, { color: COLORS.dim });
+    drawText(g, line2, introX, 58, { color: COLORS.dim });
 
     const near = this.nearestMachine();
     for (const m of this.machines) this.drawCabinet(g, m, m === near);
@@ -237,7 +241,7 @@ export class HallwayScene implements Scene {
     }
 
     if (m.best > 0) {
-      drawText(g, `HI ${padScore(m.best)}`, x + CABINET_W / 2, y - 12, { align: "center", color: COLORS.dim });
+      drawText(g, `${tr({ en: "HI", zh: "最高" })} ${padScore(m.best)}`, x + CABINET_W / 2, y - 12, { align: "center", color: COLORS.dim });
     }
   }
 
@@ -260,7 +264,7 @@ export class HallwayScene implements Scene {
     drawPanel(g, x, y, w, 40);
     drawText(g, m.info.title.toUpperCase(), x + w / 2, y + 4, { align: "center", color: COLORS.accent });
     drawText(g, m.info.tagline, x + w / 2, y + 15, { align: "center", color: COLORS.dim });
-    if (blink(this.time)) drawText(g, "UP / ENTER: PLAY", x + w / 2, y + 27, { align: "center" });
+    if (blink(this.time)) drawText(g, { en: "UP / ENTER: PLAY", zh: "UP / ENTER：開始遊玩" }, x + w / 2, y + 27, { align: "center" });
   }
 
   private showToast(text: string): void {

@@ -2,6 +2,7 @@ import { FIELD, HEIGHT } from "../../engine/constants";
 import type { ArcadeGame, GameServices, GameStatus, LegendItem } from "../../engine/game";
 import { Keys } from "../../engine/input";
 import { chance, circleRectOverlap, clamp, pick, rand, rectsOverlap, type Rect } from "../../engine/math";
+import { tr } from "../../engine/i18n";
 import { COLORS, drawText } from "../../engine/ui";
 import { LEVELS } from "./levels";
 
@@ -99,14 +100,14 @@ const DROP_COLORS: Record<DropKind, string> = { multi: "#5ef0ff", wide: "#6cff7a
 const DROP_LABELS: Record<DropKind, string> = { multi: "M", wide: "W", life: "+" };
 
 export const BREAKOUT_LEGEND: LegendItem[] = [
-  { color: BRICK_COLORS["1"], label: "Brick: 1 hit" },
-  { color: BRICK_COLORS["2"], label: "Tough: 2 or 3 hits" },
-  { color: BRICK_COLORS.X, label: "Blast: breaks neighbours" },
-  { color: BRICK_COLORS.M, label: "Mover: the row slides" },
-  { color: BRICK_COLORS.S, label: "Steel: only blasts break it" },
-  { color: DROP_COLORS.multi, label: "M capsule: multi-ball" },
-  { color: DROP_COLORS.wide, label: "W capsule: wide paddle" },
-  { color: DROP_COLORS.life, label: "+ capsule: extra life" },
+  { color: BRICK_COLORS["1"], label: { en: "Brick: 1 hit", zh: "普通磚：1 下" } },
+  { color: BRICK_COLORS["2"], label: { en: "Tough: 2 or 3 hits", zh: "硬磚：2 或 3 下" } },
+  { color: BRICK_COLORS.X, label: { en: "Blast: breaks neighbours", zh: "爆炸磚：炸掉周圍磚塊" } },
+  { color: BRICK_COLORS.M, label: { en: "Mover: the row slides", zh: "移動磚：整排左右滑動" } },
+  { color: BRICK_COLORS.S, label: { en: "Steel: only blasts break it", zh: "鋼磚：只有爆炸能打破" } },
+  { color: DROP_COLORS.multi, label: { en: "M capsule: multi-ball", zh: "M 膠囊：多球" } },
+  { color: DROP_COLORS.wide, label: { en: "W capsule: wide paddle", zh: "W 膠囊：加長球拍" } },
+  { color: DROP_COLORS.life, label: { en: "+ capsule: extra life", zh: "+ 膠囊：加一條命" } },
 ];
 
 /**
@@ -201,10 +202,10 @@ export class BreakoutGame implements ArcadeGame {
     for (const b of this.balls) g.fillRect(Math.round(b.x - BALL_R), Math.round(b.y - BALL_R), BALL_R * 2, BALL_R * 2);
 
     if (this.stuck && this.clearTimer <= 0) {
-      drawText(g, `STAGE ${this.level}  -  SPACE TO LAUNCH`, FIELD.w / 2, PADDLE_Y - 40, { align: "center", color: COLORS.dim });
+      drawText(g, { en: `STAGE ${this.level}  -  SPACE TO LAUNCH`, zh: `第 ${this.level} 關　按 SPACE 發球` }, FIELD.w / 2, PADDLE_Y - 40, { align: "center", color: COLORS.dim });
     }
     if (this.clearTimer > 0) {
-      drawText(g, "STAGE CLEAR", FIELD.w / 2, FIELD.y + FIELD.h / 2, { align: "center", color: COLORS.accent });
+      drawText(g, { en: "STAGE CLEAR", zh: "過關！" }, FIELD.w / 2, FIELD.y + FIELD.h / 2, { align: "center", color: COLORS.accent });
     }
   }
 
@@ -216,7 +217,7 @@ export class BreakoutGame implements ArcadeGame {
       lives: this.lives,
       level: this.level,
       over: this.over,
-      info: this.wideTime > 0 ? `WIDE ${Math.ceil(this.wideTime)}` : undefined,
+      info: this.wideTime > 0 ? `${tr({ en: "WIDE", zh: "加長" })} ${Math.ceil(this.wideTime)}` : undefined,
     };
   }
 

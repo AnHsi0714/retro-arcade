@@ -1,4 +1,5 @@
 import { HEIGHT, HUD_HEIGHT, WIDTH } from "./constants";
+import { getLang, tr, type Text } from "./i18n";
 
 /** Shared palette for placeholder visuals. Stage 9 can retune these in one place. */
 export const COLORS = {
@@ -15,6 +16,9 @@ export const COLORS = {
 };
 
 export const FONT_SIZE = 9;
+/** Chinese glyphs need more pixels than Latin ones to stay readable. */
+const ZH_SIZE_BONUS = 2;
+const ZH_FONT = '"Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif';
 
 export interface TextOptions {
   color?: string;
@@ -22,19 +26,31 @@ export interface TextOptions {
   size?: number;
 }
 
+function setFont(g: CanvasRenderingContext2D, size: number): void {
+  g.font = getLang() === "zh" ? `${size + ZH_SIZE_BONUS}px ${ZH_FONT}` : `${size}px monospace`;
+}
+
 /** All text goes through here so a bitmap font can replace it later. */
 export function drawText(
   g: CanvasRenderingContext2D,
-  str: string,
+  text: Text,
   x: number,
   y: number,
   opts: TextOptions = {},
 ): void {
-  g.font = `${opts.size ?? FONT_SIZE}px monospace`;
+  setFont(g, opts.size ?? FONT_SIZE);
   g.textBaseline = "top";
   g.textAlign = opts.align ?? "left";
   g.fillStyle = opts.color ?? COLORS.text;
-  g.fillText(str, Math.round(x), Math.round(y));
+  // the larger Chinese font starts a pixel higher so it stays inside the same line box
+  const dy = getLang() === "zh" ? -1 : 0;
+  g.fillText(tr(text), Math.round(x), Math.round(y) + dy);
+}
+
+/** Width of text as drawText would draw it. */
+export function measureText(g: CanvasRenderingContext2D, text: Text, size = FONT_SIZE): number {
+  setFont(g, size);
+  return g.measureText(tr(text)).width;
 }
 
 export function drawPanel(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
@@ -65,19 +81,19 @@ export function drawHud(g: CanvasRenderingContext2D, hud: HudData): void {
   g.fillRect(0, 0, WIDTH, HUD_HEIGHT);
   const y = 3;
   drawText(g, hud.title.toUpperCase(), 4, y, { color: COLORS.accent });
-  drawText(g, `SCORE ${padScore(hud.score)}`, 120, y);
-  drawText(g, `HI ${padScore(Math.max(hud.best, hud.score))}`, 220, y, { color: COLORS.dim });
+  drawText(g, `${tr({ en: "SCORE", zh: "分數" })} ${padScore(hud.score)}`, 120, y);
+  drawText(g, `${tr({ en: "HI", zh: "最高" })} ${padScore(Math.max(hud.best, hud.score))}`, 220, y, { color: COLORS.dim });
 
   const right: string[] = [];
   if (hud.info) right.push(hud.info);
-  if (hud.level !== undefined) right.push(`LV ${hud.level}`);
+  if (hud.level !== undefined) right.push(`${tr({ en: "LV", zh: "關" })} ${hud.level}`);
   if (hud.lives !== undefined) right.push(`x${Math.max(0, hud.lives)}`);
-  if (hud.muted) right.push("MUTE");
+  if (hud.muted) right.push(tr({ en: "MUTE", zh: "靜音" }));
   drawText(g, right.join("  "), WIDTH - 4, y, { align: "right" });
 }
 
 export interface MenuItem {
-  label: string;
+  label: Text;
   /** Adjustable value shown at the right; the active row shows < > around it. */
   value?: string;
 }
@@ -85,10 +101,10 @@ export interface MenuItem {
 /** Centered panel with a title and a vertical list; the selected item gets a cursor. */
 export function drawMenu(
   g: CanvasRenderingContext2D,
-  title: string,
+  title: Text,
   items: readonly MenuItem[],
   selected: number,
-  footer: readonly string[] = [],
+  footer: readonly Text[] = [],
 ): void {
   const lineH = 12;
   const w = 220;
@@ -101,7 +117,7 @@ export function drawMenu(
     const iy = y + 26 + i * lineH;
     const active = i === selected;
     const color = active ? COLORS.text : COLORS.dim;
-    drawText(g, `${active ? ">" : " "} ${item.label}`, x + 40, iy, { color });
+    drawText(g, `${active ? ">" : " "} ${tr(item.label)}`, x + 40, iy, { color });
     if (item.value !== undefined) {
       drawText(g, active ? `< ${item.value} >` : item.value, x + w - 30, iy, { color, align: "right" });
     }
@@ -118,10 +134,10 @@ export function blink(time: number, rate = 2): boolean {
 
 export interface HowToData {
   title: string;
-  lines: readonly string[];
-  legend?: readonly { color: string; label: string }[];
-  controls: string;
-  prompt: string;
+  lines: readonly Text[];
+  legend?: readonly { color: string; label: Text }[];
+  controls: Text;
+  prompt: Text;
 }
 
 /** Full how-to card: goal lines, a two-column color legend, controls and a prompt. */
@@ -156,7 +172,7 @@ export function drawHowTo(g: CanvasRenderingContext2D, data: HowToData, time: nu
   }
 
   cy += 8;
-  drawText(g, `CONTROLS  ${data.controls}`, x + 16, cy, { color: COLORS.dim });
+  drawText(g, `${tr({ en: "CONTROLS", zh: "操作" })}  ${tr(data.controls)}`, x + 16, cy, { color: COLORS.dim });
   if (blink(time, 1.5)) drawText(g, data.prompt, WIDTH / 2, y + h - 16, { align: "center", color: COLORS.good });
 }
 
@@ -166,7 +182,7 @@ export function drawVolumeIndicator(g: CanvasRenderingContext2D, volume: number,
   const x = WIDTH - w - 8;
   const y = HUD_HEIGHT + 6;
   drawPanel(g, x, y, w, 20);
-  drawText(g, muted ? "MUTE" : "VOL", x + 6, y + 6, { color: muted ? COLORS.danger : COLORS.text });
+  drawText(g, muted ? { en: "MUTE", zh: "靜音" } : { en: "VOL", zh: "音量" }, x + 6, y + 6, { color: muted ? COLORS.danger : COLORS.text });
   const bx = x + 36;
   const step = (w - 44) / max;
   for (let i = 0; i < max; i++) {

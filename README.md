@@ -23,7 +23,7 @@ Pushing to `main` builds and deploys to GitHub Pages via [.github/workflows/depl
 | ------------- | ----------------------------------------------------- |
 | Hallway       | ← → walk, ↑ / Enter play                               |
 | In a game     | Esc / P pause (resume, how to play, restart, exit)    |
-| Anywhere      | M mute, - / + volume (also in the pause menu)         |
+| Anywhere      | M mute, - / + volume, L English / 中文 (also in the pause menu) |
 | Snake         | Arrows steer                                           |
 | Breakout      | ← → paddle, Space launch                               |
 | Star Defender | ← → move, Space fire                                   |
@@ -57,7 +57,8 @@ src/
     game.ts             ArcadeGame / GameInfo / GameResult contracts
     gameScene.ts        hosts one game: HUD, pause menu, restart, game over, high scores
     audio.ts            sound playback: synth placeholders, overridable by loaded files, mute
-    storage.ts          localStorage wrapper (high scores, mute), safe when storage is blocked
+    storage.ts          localStorage wrapper (high scores, sound, language), safe when storage is blocked
+    i18n.ts             English / Chinese text: tr({ en, zh }), current language, toggle
     ui.ts               text, panels, HUD, menus (all text goes through drawText)
     bootScene.ts        title / loading screen, unlocks audio on first key
     math.ts             small math and collision helpers
@@ -74,7 +75,7 @@ scripts/smoke.ts        headless smoke test
 
 1. Create `src/games/<id>/<Name>Game.ts` implementing `ArcadeGame` from [src/engine/game.ts](src/engine/game.ts). Draw only below `HUD_HEIGHT` (the `FIELD` rect); the host draws the HUD and handles pause, restart and game over.
 2. Report `{ score, lives?, level?, info?, over }` from `status()`. Setting `over: true` hands control to the host's game-over screen.
-3. Add a `GameInfo` entry in [src/games/registry.ts](src/games/registry.ts) and a position in [src/hallway/machines.ts](src/hallway/machines.ts). Its `howTo` lines and `legend` (what each placeholder color means) fill the how-to card shown before the first run and from the pause menu.
+3. Add a `GameInfo` entry in [src/games/registry.ts](src/games/registry.ts) and a position in [src/hallway/machines.ts](src/hallway/machines.ts). Visible text is written as `{ en, zh }` (see [src/engine/i18n.ts](src/engine/i18n.ts)); plain strings are only for names and numbers. Its `howTo` lines and `legend` (what each placeholder color means) fill the how-to card shown before the first run and from the pause menu.
 
 ### Replacing placeholders (stage 9)
 

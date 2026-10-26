@@ -1,6 +1,7 @@
 import { FIELD } from "./constants";
 import { MAX_VOLUME } from "./audio";
 import type { ArcadeGame, GameInfo, GameResult, GameServices } from "./game";
+import { getLang, LANG_NAMES, toggleLang, tr, type Localized, type Text } from "./i18n";
 import { Keys } from "./input";
 import type { Scene } from "./scene";
 import { getHighScore, submitScore } from "./storage";
@@ -9,16 +10,17 @@ import { COLORS, drawHowTo, drawHud, drawMenu, drawText, padScore, type MenuItem
 /** intro: how-to card before the first run; help: the same card opened from the pause menu. */
 type Mode = "intro" | "playing" | "paused" | "help" | "over";
 
-type PauseAction = "resume" | "help" | "volume" | "restart" | "exit";
-const PAUSE_ACTIONS: PauseAction[] = ["resume", "help", "volume", "restart", "exit"];
-const PAUSE_LABELS: Record<PauseAction, string> = {
-  resume: "RESUME",
-  help: "HOW TO PLAY",
-  volume: "VOLUME",
-  restart: "RESTART",
-  exit: "EXIT TO HALL",
+type PauseAction = "resume" | "help" | "volume" | "language" | "restart" | "exit";
+const PAUSE_ACTIONS: PauseAction[] = ["resume", "help", "volume", "language", "restart", "exit"];
+const PAUSE_LABELS: Record<PauseAction, Localized> = {
+  resume: { en: "RESUME", zh: "繼續" },
+  help: { en: "HOW TO PLAY", zh: "遊戲說明" },
+  volume: { en: "VOLUME", zh: "音量" },
+  language: { en: "LANGUAGE", zh: "語言" },
+  restart: { en: "RESTART", zh: "重新開始" },
+  exit: { en: "EXIT TO HALL", zh: "回到長廊" },
 };
-const OVER_ITEMS: MenuItem[] = [{ label: "PLAY AGAIN" }, { label: "EXIT TO HALL" }];
+const OVER_ITEMS: MenuItem[] = [{ label: { en: "PLAY AGAIN", zh: "再玩一次" } }, { label: PAUSE_LABELS.exit }];
 
 /** Ignore input briefly after game over so a held fire key doesn't skip the screen. */
 const OVER_INPUT_DELAY = 0.8;
@@ -92,16 +94,18 @@ export class GameScene implements Scene {
           this.resume();
           return;
         }
-        if (PAUSE_ACTIONS[this.cursor] === "volume") {
-          const delta = (input.wasPressed(Keys.right) ? 1 : 0) - (input.wasPressed(Keys.left) ? 1 : 0);
-          if (delta !== 0) {
-            audio.changeVolume(delta);
-            audio.play("select");
-          }
+        const delta = (input.wasPressed(Keys.right) ? 1 : 0) - (input.wasPressed(Keys.left) ? 1 : 0);
+        if (delta !== 0 && PAUSE_ACTIONS[this.cursor] === "volume") {
+          audio.changeVolume(delta);
+          audio.play("select");
+        } else if (delta !== 0 && PAUSE_ACTIONS[this.cursor] === "language") {
+          toggleLang();
+          audio.play("select");
         }
         const choice = PAUSE_ACTIONS[this.navigate(PAUSE_ACTIONS.length)];
         if (choice === "resume") this.resume();
         else if (choice === "help") this.mode = "help";
+        else if (choice === "language") toggleLang();
         else if (choice === "restart") this.restart();
         else if (choice === "exit") this.leave();
         return;
@@ -150,7 +154,10 @@ export class GameScene implements Scene {
           lines: this.info.howTo,
           legend: this.info.legend,
           controls: this.info.controls,
-          prompt: this.mode === "intro" ? "ENTER / SPACE: START     ESC: BACK TO HALL" : "ENTER / ESC: BACK",
+          prompt:
+            this.mode === "intro"
+              ? { en: "ENTER / SPACE: START     ESC: BACK TO HALL", zh: "ENTER / SPACE：開始　　ESC：回到長廊" }
+              : { en: "ENTER / ESC: BACK", zh: "ENTER / ESC：返回" },
         },
         this.time,
       );
@@ -158,13 +165,20 @@ export class GameScene implements Scene {
       const { audio } = this.services;
       const items: MenuItem[] = PAUSE_ACTIONS.map((action) => ({
         label: PAUSE_LABELS[action],
-        value: action === "volume" ? (audio.muted ? "MUTE" : `${audio.volume}/${MAX_VOLUME}`) : undefined,
+        value:
+          action === "volume"
+            ? audio.muted
+              ? tr({ en: "MUTE", zh: "靜音" })
+              : `${audio.volume}/${MAX_VOLUME}`
+            : action === "language"
+              ? LANG_NAMES[getLang()]
+              : undefined,
       }));
-      drawMenu(g, "PAUSED", items, this.cursor, ["ESC/P resume  M mute"]);
+      drawMenu(g, { en: "PAUSED", zh: "暫停" }, items, this.cursor, [{ en: "ESC/P resume  M mute", zh: "ESC/P 繼續　M 靜音" }]);
     } else if (this.mode === "over") {
-      const footer = [`SCORE ${padScore(status.score)}`];
-      if (this.newRecord) footer.push("NEW RECORD!");
-      drawMenu(g, "GAME OVER", OVER_ITEMS, this.cursor, footer);
+      const footer: Text[] = [`${tr({ en: "SCORE", zh: "分數" })} ${padScore(status.score)}`];
+      if (this.newRecord) footer.push({ en: "NEW RECORD!", zh: "新紀錄！" });
+      drawMenu(g, { en: "GAME OVER", zh: "遊戲結束" }, OVER_ITEMS, this.cursor, footer);
       if (this.overTimer < OVER_INPUT_DELAY) {
         drawText(g, "...", FIELD.w / 2, FIELD.y + 4, { align: "center", color: COLORS.dim });
       }

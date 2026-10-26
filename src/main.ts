@@ -2,6 +2,7 @@ import { AudioManager, MAX_VOLUME } from "./engine/audio";
 import { BootScene } from "./engine/bootScene";
 import type { GameInfo, GameServices } from "./engine/game";
 import { GameScene } from "./engine/gameScene";
+import { toggleLang } from "./engine/i18n";
 import { Input, Keys } from "./engine/input";
 import { GameLoop } from "./engine/loop";
 import { SceneManager } from "./engine/scene";
@@ -63,6 +64,11 @@ function main(): void {
           audio.toggleMute();
         }
         volumeShown = 1.5;
+        input.consume();
+      }
+      if (input.wasPressed(Keys.language)) {
+        toggleLang();
+        audio.play("select");
         input.consume();
       }
       scenes.update(dt);

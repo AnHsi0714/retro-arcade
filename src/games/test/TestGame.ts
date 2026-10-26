@@ -34,7 +34,7 @@ export class TestGame implements ArcadeGame {
   }
 
   render(g: CanvasRenderingContext2D): void {
-    drawText(g, "TEST UNIT - collect coins, X to end the run", FIELD.w / 2, FIELD.y + 6, {
+    drawText(g, { en: "TEST UNIT - collect coins, X to end the run", zh: "測試機台：撿金幣，按 X 結束這局" }, FIELD.w / 2, FIELD.y + 6, {
       align: "center",
       color: COLORS.dim,
     });

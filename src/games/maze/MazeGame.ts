@@ -2,6 +2,7 @@ import { FIELD } from "../../engine/constants";
 import type { ArcadeGame, GameServices, GameStatus, LegendItem } from "../../engine/game";
 import { Keys } from "../../engine/input";
 import { mod, pick } from "../../engine/math";
+import { tr } from "../../engine/i18n";
 import { blink, COLORS, drawText } from "../../engine/ui";
 import { HOUSE_EXIT, HOUSE_SLOTS, MAZE, MAZE_H, MAZE_W, PLAYER_START, TUNNEL_ROW } from "./maze";
 
@@ -93,13 +94,13 @@ const DOT_COLOR = "#f4d9b0";
 const GATE_COLOR = "#7a5ad6";
 
 export const MAZE_LEGEND: LegendItem[] = [
-  { color: CHASERS[0].color, label: "Blaze: hunts, enrages late" },
-  { color: CHASERS[1].color, label: "Pinch: cuts ahead, no traps" },
-  { color: CHASERS[2].color, label: "Echo: flanks with Blaze" },
-  { color: CHASERS[3].color, label: "Wisp: shy, ghosts thru gates" },
-  { color: DOT_COLOR, label: "Big dot: chasers flee" },
-  { color: GATE_COLOR, label: "Gate: opens and shuts" },
-  { color: COLORS.good, label: "Trap: stuns a chaser 3s" },
+  { color: CHASERS[0].color, label: { en: "Blaze: hunts, enrages late", zh: "Blaze：追獵，後期暴怒" } },
+  { color: CHASERS[1].color, label: { en: "Pinch: cuts ahead, no traps", zh: "Pinch：繞前包抄，不踩陷阱" } },
+  { color: CHASERS[2].color, label: { en: "Echo: flanks with Blaze", zh: "Echo：與 Blaze 夾擊" } },
+  { color: CHASERS[3].color, label: { en: "Wisp: shy, ghosts thru gates", zh: "Wisp：怕生，能穿過閘門" } },
+  { color: DOT_COLOR, label: { en: "Big dot: chasers flee", zh: "大豆子：追逐者逃跑" } },
+  { color: GATE_COLOR, label: { en: "Gate: opens and shuts", zh: "閘門：定時開關" } },
+  { color: COLORS.good, label: { en: "Trap: stuns a chaser 3s", zh: "陷阱：讓追逐者暈 3 秒" } },
 ];
 
 type Phase = "ready" | "play" | "dying" | "clear";
@@ -228,19 +229,19 @@ export class MazeGame implements ArcadeGame {
     }
 
     if (this.phase === "ready") {
-      drawText(g, "READY!", OX + (MAZE_W * TILE) / 2, OY + 17 * TILE - 9, { align: "center", color: COLORS.accent });
+      drawText(g, { en: "READY!", zh: "準備！" }, OX + (MAZE_W * TILE) / 2, OY + 17 * TILE - 9, { align: "center", color: COLORS.accent });
     }
 
     // side panel: chaser legend and trap count
     const sx = OX + MAZE_W * TILE + 12;
-    drawText(g, "CHASERS", sx, OY, { color: COLORS.dim });
+    drawText(g, { en: "CHASERS", zh: "追逐者" }, sx, OY, { color: COLORS.dim });
     CHASERS.forEach((info, i) => {
       g.fillStyle = info.color;
       g.fillRect(sx, OY + 14 + i * 12, 6, 6);
       drawText(g, info.name.toUpperCase(), sx + 10, OY + 13 + i * 12);
     });
-    drawText(g, `TRAPS ${this.trapsLeft}`, sx, OY + 70, { color: COLORS.good });
-    drawText(g, this.gatesOpen ? "GATES OPEN" : "GATES SHUT", sx, OY + 82, { color: "#b49aff" });
+    drawText(g, `${tr({ en: "TRAPS", zh: "陷阱" })} ${this.trapsLeft}`, sx, OY + 70, { color: COLORS.good });
+    drawText(g, this.gatesOpen ? { en: "GATES OPEN", zh: "閘門開啟" } : { en: "GATES SHUT", zh: "閘門關閉" }, sx, OY + 82, { color: "#b49aff" });
   }
 
   destroy(): void {}
@@ -251,7 +252,7 @@ export class MazeGame implements ArcadeGame {
       lives: this.lives,
       level: this.level,
       over: this.over,
-      info: this.frightTimer > 0 ? `POWER ${Math.ceil(this.frightTimer)}` : undefined,
+      info: this.frightTimer > 0 ? `${tr({ en: "POWER", zh: "能量" })} ${Math.ceil(this.frightTimer)}` : undefined,
     };
   }
 

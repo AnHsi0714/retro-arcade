@@ -2,6 +2,7 @@ import { FIELD, HEIGHT } from "../../engine/constants";
 import type { ArcadeGame, GameServices, GameStatus, LegendItem } from "../../engine/game";
 import { Keys } from "../../engine/input";
 import { chance, clamp, pick, rand, rectsOverlap, TAU, type Rect } from "../../engine/math";
+import { tr } from "../../engine/i18n";
 import { blink, COLORS, drawText } from "../../engine/ui";
 
 const LEFT = FIELD.x + 8;
@@ -91,12 +92,12 @@ const SHIELD_COLOR = "#3fbf5a";
 const BOSS_COLOR = "#b13a6a";
 
 export const DEFENDER_LEGEND: LegendItem[] = [
-  { color: ENEMY_COLORS.grunt, label: "Grunt: shoots straight" },
-  { color: ENEMY_COLORS.bomber, label: "Bomber: 3-way spread" },
-  { color: ENEMY_COLORS.sniper, label: "Sniper: aims at you" },
-  { color: SHIELD_COLOR, label: "Shield: wears down" },
-  { color: COLORS.accent, label: "P capsule: gun upgrade" },
-  { color: BOSS_COLOR, label: "Boss: every 4th wave" },
+  { color: ENEMY_COLORS.grunt, label: { en: "Grunt: shoots straight", zh: "步兵：直線射擊" } },
+  { color: ENEMY_COLORS.bomber, label: { en: "Bomber: 3-way spread", zh: "轟炸兵：三向散射" } },
+  { color: ENEMY_COLORS.sniper, label: { en: "Sniper: aims at you", zh: "狙擊兵：瞄準你射擊" } },
+  { color: SHIELD_COLOR, label: { en: "Shield: wears down", zh: "掩體：會被打穿" } },
+  { color: COLORS.accent, label: { en: "P capsule: gun upgrade", zh: "P 膠囊：武器升級" } },
+  { color: BOSS_COLOR, label: { en: "Boss: every 4th wave", zh: "魔王：每 4 波出現" } },
 ];
 
 const ROW_KINDS: EnemyKind[] = ["sniper", "bomber", "bomber", "grunt", "grunt"];
@@ -215,7 +216,8 @@ export class DefenderGame implements ArcadeGame {
 
     if (this.waveTimer > 0) {
       const next = this.wave + 1;
-      const label = next % BOSS_EVERY === 0 ? "WARNING: BOSS" : `WAVE ${next}`;
+      const label =
+        next % BOSS_EVERY === 0 ? { en: "WARNING: BOSS", zh: "警告：魔王來襲" } : { en: `WAVE ${next}`, zh: `第 ${next} 波` };
       drawText(g, label, FIELD.w / 2, FIELD.y + FIELD.h / 2 - 10, { align: "center", color: COLORS.accent });
     }
   }
@@ -223,7 +225,7 @@ export class DefenderGame implements ArcadeGame {
   destroy(): void {}
 
   status(): GameStatus {
-    return { score: this.score, lives: this.lives, level: this.wave, over: this.over, info: `GUN ${this.weapon}` };
+    return { score: this.score, lives: this.lives, level: this.wave, over: this.over, info: `${tr({ en: "GUN", zh: "武器" })} ${this.weapon}` };
   }
 
   private nextWave(): void {

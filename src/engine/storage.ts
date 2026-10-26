@@ -28,6 +28,14 @@ export function submitScore(gameId: string, score: number): boolean {
   return true;
 }
 
+export function getString(key: string): string | null {
+  return read(key);
+}
+
+export function setString(key: string, value: string): void {
+  write(key, value);
+}
+
 export function getNumber(key: string, fallback: number): number {
   const raw = read(key);
   const v = raw === null ? NaN : Number(raw);

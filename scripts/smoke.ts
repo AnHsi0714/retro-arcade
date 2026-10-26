@@ -148,8 +148,9 @@ for (const info of GAMES) {
     tap("Escape"); // back to the pause menu
     tap("ArrowDown"); // VOLUME
     tap("ArrowRight");
-    tap("ArrowDown");
-    tap("ArrowDown"); // EXIT TO HALL
+    tap("ArrowUp");
+    tap("ArrowUp");
+    tap("ArrowUp"); // wraps from the top to the last row, EXIT TO HALL
     tap("Enter");
     if (!returned) throw new Error("did not return to the hallway");
     console.log(`ok   hallway flow (entered "${opened}" and came back)`);

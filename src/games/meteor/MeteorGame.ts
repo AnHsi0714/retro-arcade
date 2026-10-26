@@ -2,6 +2,7 @@ import { FIELD } from "../../engine/constants";
 import type { ArcadeGame, GameServices, GameStatus, LegendItem } from "../../engine/game";
 import { Keys } from "../../engine/input";
 import { chance, circlesOverlap, dist, pick, rand, TAU, wrap } from "../../engine/math";
+import { tr } from "../../engine/i18n";
 import { blink, COLORS, drawText } from "../../engine/ui";
 
 const SHIP_R = 6;
@@ -96,13 +97,13 @@ const PICKUP_COLORS: Record<PickupKind, string> = { spread: "#ffd84a", rapid: "#
 const WELL_COLOR = "#b07aff";
 
 export const METEOR_LEGEND: LegendItem[] = [
-  { color: METEOR_COLORS.rock, label: "Rock: splits in two" },
-  { color: METEOR_COLORS.blast, label: "Blast: explodes, chains" },
-  { color: METEOR_COLORS.ice, label: "Ice: frost slows your ship" },
-  { color: WELL_COLOR, label: "Well: pulls all, core kills" },
-  { color: PICKUP_COLORS.spread, label: "S: spread shot" },
-  { color: PICKUP_COLORS.rapid, label: "R: rapid fire" },
-  { color: COLORS.danger, label: "UFO: shoots at you" },
+  { color: METEOR_COLORS.rock, label: { en: "Rock: splits in two", zh: "岩石：會分裂成兩塊" } },
+  { color: METEOR_COLORS.blast, label: { en: "Blast: explodes, chains", zh: "爆炸隕石：爆炸並連鎖" } },
+  { color: METEOR_COLORS.ice, label: { en: "Ice: frost slows your ship", zh: "冰隕石：冰霧讓飛船變慢" } },
+  { color: WELL_COLOR, label: { en: "Well: pulls all, core kills", zh: "重力井：吸引一切，核心致命" } },
+  { color: PICKUP_COLORS.spread, label: { en: "S: spread shot", zh: "S：散射" } },
+  { color: PICKUP_COLORS.rapid, label: { en: "R: rapid fire", zh: "R：連射" } },
+  { color: COLORS.danger, label: { en: "UFO: shoots at you", zh: "幽浮：會朝你開火" } },
 ];
 
 /**
@@ -226,7 +227,11 @@ export class MeteorGame implements ArcadeGame {
     if (this.ship.alive && (this.invuln <= 0 || blink(this.time, 10))) this.drawShip(g);
 
     if (this.waveDelay > 0 && this.wave > 0) {
-      const label = this.wave + 1 === WELL_FROM_WAVE ? `WAVE ${this.wave + 1} - GRAVITY WELL` : `WAVE ${this.wave + 1}`;
+      const next = this.wave + 1;
+      const label =
+        next === WELL_FROM_WAVE
+          ? { en: `WAVE ${next} - GRAVITY WELL`, zh: `第 ${next} 波：重力井出現` }
+          : { en: `WAVE ${next}`, zh: `第 ${next} 波` };
       drawText(g, label, FIELD.w / 2, FIELD.y + 30, { align: "center", color: COLORS.accent });
     }
   }
@@ -235,9 +240,9 @@ export class MeteorGame implements ArcadeGame {
 
   status(): GameStatus {
     const info: string[] = [];
-    if (this.spreadTime > 0) info.push("SPREAD");
-    if (this.rapidTime > 0) info.push("RAPID");
-    if (this.isFrozen()) info.push("FROZEN");
+    if (this.spreadTime > 0) info.push(tr({ en: "SPREAD", zh: "散射" }));
+    if (this.rapidTime > 0) info.push(tr({ en: "RAPID", zh: "連射" }));
+    if (this.isFrozen()) info.push(tr({ en: "FROZEN", zh: "冰凍" }));
     return { score: this.score, lives: this.lives, level: this.wave, over: this.over, info: info.join(" ") || undefined };
   }
 

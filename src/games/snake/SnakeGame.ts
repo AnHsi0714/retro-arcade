@@ -2,6 +2,7 @@ import { FIELD } from "../../engine/constants";
 import type { ArcadeGame, GameServices, GameStatus, LegendItem } from "../../engine/game";
 import { Keys } from "../../engine/input";
 import { chance, pick, randInt } from "../../engine/math";
+import { tr } from "../../engine/i18n";
 import { blink, COLORS, drawText } from "../../engine/ui";
 
 const CELL = 8;
@@ -36,11 +37,11 @@ const APPLE_COLOR = "#ff4d4d";
 const BLOCK_COLOR = "#8a8aa6";
 
 export const SNAKE_LEGEND: LegendItem[] = [
-  { color: APPLE_COLOR, label: "Apple: grow, +10" },
-  { color: BLOCK_COLOR, label: "Block: appears over time" },
-  { color: POWER_COLORS.speed, label: "Speed: faster, double pts" },
-  { color: POWER_COLORS.ghost, label: "Ghost: pass walls, blocks" },
-  { color: POWER_COLORS.shrink, label: "Shrink: drop 3 segments" },
+  { color: APPLE_COLOR, label: { en: "Apple: grow, +10", zh: "蘋果：變長，+10" } },
+  { color: BLOCK_COLOR, label: { en: "Block: appears over time", zh: "障礙：隨時間出現" } },
+  { color: POWER_COLORS.speed, label: { en: "Speed: faster, double pts", zh: "加速：變快，分數加倍" } },
+  { color: POWER_COLORS.ghost, label: { en: "Ghost: pass walls, blocks", zh: "幽靈：穿過牆與障礙" } },
+  { color: POWER_COLORS.shrink, label: { en: "Shrink: drop 3 segments", zh: "縮短：少 3 節" } },
 ];
 
 interface Cell {
@@ -151,7 +152,7 @@ export class SnakeGame implements ArcadeGame {
     }
 
     if (this.ready > 0) {
-      drawText(g, "READY", FIELD.w / 2, FIELD.y + FIELD.h / 2 - 20, { align: "center", color: COLORS.accent });
+      drawText(g, { en: "READY", zh: "準備" }, FIELD.w / 2, FIELD.y + FIELD.h / 2 - 20, { align: "center", color: COLORS.accent });
     }
   }
 
@@ -159,8 +160,8 @@ export class SnakeGame implements ArcadeGame {
 
   status(): GameStatus {
     const info: string[] = [];
-    if (this.speedTime > 0) info.push(`SPD ${Math.ceil(this.speedTime)}`);
-    if (this.ghostTime > 0) info.push(`GHOST ${Math.ceil(this.ghostTime)}`);
+    if (this.speedTime > 0) info.push(`${tr({ en: "SPD", zh: "加速" })} ${Math.ceil(this.speedTime)}`);
+    if (this.ghostTime > 0) info.push(`${tr({ en: "GHOST", zh: "幽靈" })} ${Math.ceil(this.ghostTime)}`);
     return { score: this.score, over: this.over, info: info.join(" ") || undefined };
   }
 

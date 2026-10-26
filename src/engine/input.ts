@@ -12,6 +12,7 @@ export const Keys = {
   mute: ["KeyM"],
   volumeDown: ["Minus", "NumpadSubtract"],
   volumeUp: ["Equal", "NumpadAdd"],
+  language: ["KeyL"],
 } as const;
 
 export type KeyList = readonly string[];

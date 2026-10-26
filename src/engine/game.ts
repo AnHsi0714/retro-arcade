@@ -1,4 +1,5 @@
 import type { AudioManager } from "./audio";
+import type { Text } from "./i18n";
 import type { Input } from "./input";
 
 /** Shared services handed to every game. */
@@ -33,18 +34,18 @@ export interface ArcadeGame {
 /** A colored swatch and what it means, for the how-to screen. */
 export interface LegendItem {
   color: string;
-  label: string;
+  label: Text;
 }
 
 export interface GameInfo {
   id: string;
   title: string;
   /** One-line description shown on the cabinet. */
-  tagline: string;
+  tagline: Text;
   /** Short control hint shown on the how-to screen and in the pause menu. */
-  controls: string;
+  controls: Text;
   /** Goal and rules, one short line each, shown before the first run. */
-  howTo: string[];
+  howTo: Text[];
   /** What the placeholder colors mean. */
   legend?: LegendItem[];
   /** Placeholder cabinet color until real artwork exists. */
