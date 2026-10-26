@@ -79,7 +79,7 @@ scripts/smoke.ts        headless smoke test
 ### Replacing placeholders (stage 9)
 
 - **Sounds:** call `audio.load(name, url)` in `loadAssets()` in [src/main.ts](src/main.ts). A loaded file replaces the synth with the same name; names without a file keep their beep.
-- **Text:** swap the body of `drawText()` in [src/engine/ui.ts](src/engine/ui.ts) for a bitmap font. The canvas renders at the display's real resolution (see [src/engine/screen.ts](src/engine/screen.ts)), so text stays sharp at any scale.
+- **Text:** swap the body of `drawText()` in [src/engine/ui.ts](src/engine/ui.ts) for a bitmap font. Text softness is set by `RENDER_SCALE` in [src/engine/screen.ts](src/engine/screen.ts); try values without rebuilding via `?render=1.5` in the URL.
 - **Sprites:** each game draws in its own `render()`; the shapes there are the placeholders to swap.
 
 ## Assets and licensing
