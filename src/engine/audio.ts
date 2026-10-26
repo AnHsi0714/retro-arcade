@@ -1,4 +1,4 @@
-import { getFlag, setFlag } from "./storage";
+import { getFlag, getNumber, setFlag, setNumber } from "./storage";
 
 /**
  * Placeholder synthesized sound. Stage 9 replaces these with recorded files via
@@ -37,6 +37,9 @@ export const SOUNDS = {
 export type SoundName = keyof typeof SOUNDS;
 
 const MUTE_KEY = "muted";
+const VOLUME_KEY = "volume";
+export const MAX_VOLUME = 10;
+const DEFAULT_VOLUME = 7;
 
 export class AudioManager {
   private ctx: AudioContext | null = null;
@@ -45,9 +48,27 @@ export class AudioManager {
   private buffers = new Map<string, AudioBuffer>();
   private pendingLoads: Array<[SoundName, string]> = [];
   private _muted = getFlag(MUTE_KEY);
+  private _volume = Math.round(Math.min(MAX_VOLUME, Math.max(0, getNumber(VOLUME_KEY, DEFAULT_VOLUME))));
 
   get muted(): boolean {
     return this._muted;
+  }
+
+  /** Volume step from 0 to MAX_VOLUME, independent of mute. */
+  get volume(): number {
+    return this._volume;
+  }
+
+  /** Changes the volume by `delta` steps; also unmutes so the change is audible. */
+  changeVolume(delta: number): number {
+    this._volume = Math.min(MAX_VOLUME, Math.max(0, this._volume + delta));
+    setNumber(VOLUME_KEY, this._volume);
+    if (this._muted) {
+      this._muted = false;
+      setFlag(MUTE_KEY, false);
+    }
+    this.applyGain();
+    return this._volume;
   }
 
   /** Browsers only allow audio after a user gesture; call this from one. */
@@ -57,7 +78,7 @@ export class AudioManager {
       if (!Ctor) return;
       this.ctx = new Ctor();
       this.master = this.ctx.createGain();
-      this.master.gain.value = this._muted ? 0 : 1;
+      this.master.gain.value = this.gain();
       this.master.connect(this.ctx.destination);
       this.noise = this.makeNoise(this.ctx);
       for (const [name, url] of this.pendingLoads) void this.load(name, url);
@@ -80,14 +101,23 @@ export class AudioManager {
   toggleMute(): boolean {
     this._muted = !this._muted;
     setFlag(MUTE_KEY, this._muted);
-    if (this.master && this.ctx) this.master.gain.setValueAtTime(this._muted ? 0 : 1, this.ctx.currentTime);
+    this.applyGain();
     return this._muted;
+  }
+
+  /** Squared so each step sounds roughly equally louder. */
+  private gain(): number {
+    return this._muted ? 0 : (this._volume / MAX_VOLUME) ** 2;
+  }
+
+  private applyGain(): void {
+    if (this.master && this.ctx) this.master.gain.setValueAtTime(this.gain(), this.ctx.currentTime);
   }
 
   play(name: SoundName): void {
     const ctx = this.ctx;
     const master = this.master;
-    if (!ctx || !master || this._muted) return;
+    if (!ctx || !master || this._muted || this._volume === 0) return;
 
     const buffer = this.buffers.get(name);
     if (buffer) {

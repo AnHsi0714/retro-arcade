@@ -7,7 +7,7 @@ const HOW_TO_PLAY: Array<[string, string]> = [
   ["WALK", "LEFT / RIGHT arrows (or A / D) along the hall"],
   ["PLAY", "stand at a cabinet, press UP or ENTER"],
   ["PAUSE", "ESC or P: how to play, restart, exit to hall"],
-  ["SOUND", "M mutes and unmutes"],
+  ["SOUND", "M mute,  - / + volume"],
   ["SCORES", "your best score per cabinet is saved here"],
 ];
 

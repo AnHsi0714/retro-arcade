@@ -1,4 +1,5 @@
 import { FIELD } from "./constants";
+import { MAX_VOLUME } from "./audio";
 import type { ArcadeGame, GameInfo, GameResult, GameServices } from "./game";
 import { Keys } from "./input";
 import type { Scene } from "./scene";
@@ -8,7 +9,15 @@ import { COLORS, drawHowTo, drawHud, drawMenu, drawText, padScore, type MenuItem
 /** intro: how-to card before the first run; help: the same card opened from the pause menu. */
 type Mode = "intro" | "playing" | "paused" | "help" | "over";
 
-const PAUSE_ITEMS: MenuItem[] = [{ label: "RESUME" }, { label: "HOW TO PLAY" }, { label: "RESTART" }, { label: "EXIT TO HALL" }];
+type PauseAction = "resume" | "help" | "volume" | "restart" | "exit";
+const PAUSE_ACTIONS: PauseAction[] = ["resume", "help", "volume", "restart", "exit"];
+const PAUSE_LABELS: Record<PauseAction, string> = {
+  resume: "RESUME",
+  help: "HOW TO PLAY",
+  volume: "VOLUME",
+  restart: "RESTART",
+  exit: "EXIT TO HALL",
+};
 const OVER_ITEMS: MenuItem[] = [{ label: "PLAY AGAIN" }, { label: "EXIT TO HALL" }];
 
 /** Ignore input briefly after game over so a held fire key doesn't skip the screen. */
@@ -83,11 +92,18 @@ export class GameScene implements Scene {
           this.resume();
           return;
         }
-        const choice = this.navigate(PAUSE_ITEMS.length);
-        if (choice === 0) this.resume();
-        else if (choice === 1) this.mode = "help";
-        else if (choice === 2) this.restart();
-        else if (choice === 3) this.leave();
+        if (PAUSE_ACTIONS[this.cursor] === "volume") {
+          const delta = (input.wasPressed(Keys.right) ? 1 : 0) - (input.wasPressed(Keys.left) ? 1 : 0);
+          if (delta !== 0) {
+            audio.changeVolume(delta);
+            audio.play("select");
+          }
+        }
+        const choice = PAUSE_ACTIONS[this.navigate(PAUSE_ACTIONS.length)];
+        if (choice === "resume") this.resume();
+        else if (choice === "help") this.mode = "help";
+        else if (choice === "restart") this.restart();
+        else if (choice === "exit") this.leave();
         return;
       }
       case "over": {
@@ -139,7 +155,12 @@ export class GameScene implements Scene {
         this.time,
       );
     } else if (this.mode === "paused") {
-      drawMenu(g, "PAUSED", PAUSE_ITEMS, this.cursor, ["ESC/P resume  M mute"]);
+      const { audio } = this.services;
+      const items: MenuItem[] = PAUSE_ACTIONS.map((action) => ({
+        label: PAUSE_LABELS[action],
+        value: action === "volume" ? (audio.muted ? "MUTE" : `${audio.volume}/${MAX_VOLUME}`) : undefined,
+      }));
+      drawMenu(g, "PAUSED", items, this.cursor, ["ESC/P resume  M mute"]);
     } else if (this.mode === "over") {
       const footer = [`SCORE ${padScore(status.score)}`];
       if (this.newRecord) footer.push("NEW RECORD!");

@@ -28,6 +28,16 @@ export function submitScore(gameId: string, score: number): boolean {
   return true;
 }
 
+export function getNumber(key: string, fallback: number): number {
+  const raw = read(key);
+  const v = raw === null ? NaN : Number(raw);
+  return Number.isFinite(v) ? v : fallback;
+}
+
+export function setNumber(key: string, value: number): void {
+  write(key, String(value));
+}
+
 export function getFlag(key: string): boolean {
   return read(key) === "1";
 }

@@ -1,4 +1,4 @@
-import { AudioManager } from "./engine/audio";
+import { AudioManager, MAX_VOLUME } from "./engine/audio";
 import { BootScene } from "./engine/bootScene";
 import type { GameInfo, GameServices } from "./engine/game";
 import { GameScene } from "./engine/gameScene";
@@ -6,6 +6,7 @@ import { Input, Keys } from "./engine/input";
 import { GameLoop } from "./engine/loop";
 import { SceneManager } from "./engine/scene";
 import { createScreen } from "./engine/screen";
+import { drawVolumeIndicator } from "./engine/ui";
 import { HallwayScene } from "./hallway/HallwayScene";
 
 function showError(message: string): void {
@@ -46,13 +47,30 @@ function main(): void {
   const hallway = new HallwayScene(services, playGame);
   scenes.switchTo(new BootScene(services, loadAssets(audio), () => scenes.switchTo(hallway)));
 
+  /** Seconds left to show the volume indicator after a sound setting changes. */
+  let volumeShown = 0;
   const loop = new GameLoop(
     (dt) => {
       input.beginStep();
-      if (input.wasPressed(Keys.mute)) audio.toggleMute();
+      volumeShown = Math.max(0, volumeShown - dt);
+      // global sound keys work in every scene and are consumed so scenes don't react to them
+      const volumeDelta = (input.wasPressed(Keys.volumeUp) ? 1 : 0) - (input.wasPressed(Keys.volumeDown) ? 1 : 0);
+      if (input.wasPressed(Keys.mute) || volumeDelta !== 0) {
+        if (volumeDelta !== 0) {
+          audio.changeVolume(volumeDelta);
+          audio.play("select");
+        } else {
+          audio.toggleMute();
+        }
+        volumeShown = 1.5;
+        input.consume();
+      }
       scenes.update(dt);
     },
-    () => scenes.render(g),
+    () => {
+      scenes.render(g);
+      if (volumeShown > 0) drawVolumeIndicator(g, audio.volume, MAX_VOLUME, audio.muted);
+    },
   );
   loop.start();
 }

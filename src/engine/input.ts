@@ -10,6 +10,8 @@ export const Keys = {
   back: ["Escape", "Backspace"],
   pause: ["Escape", "KeyP"],
   mute: ["KeyM"],
+  volumeDown: ["Minus", "NumpadSubtract"],
+  volumeUp: ["Equal", "NumpadAdd"],
 } as const;
 
 export type KeyList = readonly string[];

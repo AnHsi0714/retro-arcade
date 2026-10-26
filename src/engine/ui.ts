@@ -78,7 +78,8 @@ export function drawHud(g: CanvasRenderingContext2D, hud: HudData): void {
 
 export interface MenuItem {
   label: string;
-  hint?: string;
+  /** Adjustable value shown at the right; the active row shows < > around it. */
+  value?: string;
 }
 
 /** Centered panel with a title and a vertical list; the selected item gets a cursor. */
@@ -99,7 +100,11 @@ export function drawMenu(
   items.forEach((item, i) => {
     const iy = y + 26 + i * lineH;
     const active = i === selected;
-    drawText(g, `${active ? ">" : " "} ${item.label}`, x + 50, iy, { color: active ? COLORS.text : COLORS.dim });
+    const color = active ? COLORS.text : COLORS.dim;
+    drawText(g, `${active ? ">" : " "} ${item.label}`, x + 40, iy, { color });
+    if (item.value !== undefined) {
+      drawText(g, active ? `< ${item.value} >` : item.value, x + w - 30, iy, { color, align: "right" });
+    }
   });
   footer.forEach((line, i) => {
     drawText(g, line, WIDTH / 2, y + 30 + items.length * lineH + i * 10, { align: "center", color: COLORS.dim });
@@ -153,4 +158,19 @@ export function drawHowTo(g: CanvasRenderingContext2D, data: HowToData, time: nu
   cy += 8;
   drawText(g, `CONTROLS  ${data.controls}`, x + 16, cy, { color: COLORS.dim });
   if (blink(time, 1.5)) drawText(g, data.prompt, WIDTH / 2, y + h - 16, { align: "center", color: COLORS.good });
+}
+
+/** Volume bar shown briefly after a volume or mute change. */
+export function drawVolumeIndicator(g: CanvasRenderingContext2D, volume: number, max: number, muted: boolean): void {
+  const w = 120;
+  const x = WIDTH - w - 8;
+  const y = HUD_HEIGHT + 6;
+  drawPanel(g, x, y, w, 20);
+  drawText(g, muted ? "MUTE" : "VOL", x + 6, y + 6, { color: muted ? COLORS.danger : COLORS.text });
+  const bx = x + 36;
+  const step = (w - 44) / max;
+  for (let i = 0; i < max; i++) {
+    g.fillStyle = !muted && i < volume ? COLORS.good : "#3a3a5a";
+    g.fillRect(Math.round(bx + i * step), y + 6, Math.max(2, Math.floor(step) - 2), 8);
+  }
 }

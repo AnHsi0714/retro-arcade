@@ -23,7 +23,7 @@ Pushing to `main` builds and deploys to GitHub Pages via [.github/workflows/depl
 | ------------- | ----------------------------------------------------- |
 | Hallway       | ← → walk, ↑ / Enter play                               |
 | In a game     | Esc / P pause (resume, how to play, restart, exit)    |
-| Anywhere      | M mute                                                 |
+| Anywhere      | M mute, - / + volume (also in the pause menu)         |
 | Snake         | Arrows steer                                           |
 | Breakout      | ← → paddle, Space launch                               |
 | Star Defender | ← → move, Space fire                                   |

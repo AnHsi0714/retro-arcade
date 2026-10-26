@@ -37,7 +37,7 @@ function makeServices() {
   const win = new FakeWindow();
   const input = new Input();
   input.attach(win as unknown as Window);
-  const audio = { muted: false, play: noop, unlock: noop, toggleMute: () => false } as unknown as AudioManager;
+  const audio = { muted: false, volume: 7, play: noop, unlock: noop, toggleMute: () => false, changeVolume: () => 7 } as unknown as AudioManager;
   return { services: { input, audio } as GameServices, win };
 }
 
@@ -146,6 +146,8 @@ for (const info of GAMES) {
     tap("ArrowDown"); // HOW TO PLAY
     tap("Enter");
     tap("Escape"); // back to the pause menu
+    tap("ArrowDown"); // VOLUME
+    tap("ArrowRight");
     tap("ArrowDown");
     tap("ArrowDown"); // EXIT TO HALL
     tap("Enter");

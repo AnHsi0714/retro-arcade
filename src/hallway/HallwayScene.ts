@@ -164,8 +164,12 @@ export class HallwayScene implements Scene {
     g.fillRect(Math.round(-this.camX), 0, WALL_THICKNESS, HEIGHT);
     g.fillRect(Math.round(this.worldW - WALL_THICKNESS - this.camX), 0, WALL_THICKNESS, HEIGHT);
 
-    drawText(g, "RETRO ARCADE", START_X - this.camX, 90, { color: COLORS.accent, size: 16, align: "center" });
-    drawText(g, "LEFT / RIGHT walk   UP / ENTER play   M mute", START_X - this.camX, 112, { align: "center", color: COLORS.dim });
+    // left-aligned near the left wall so nothing is cut off at the start of the hall
+    const introX = WALL_THICKNESS + 12 - this.camX;
+    drawPanel(g, introX - 8, 16, 214, 56);
+    drawText(g, "RETRO ARCADE", introX, 24, { color: COLORS.accent, size: 16 });
+    drawText(g, "LEFT / RIGHT walk    UP / ENTER play", introX, 46, { color: COLORS.dim });
+    drawText(g, "ESC pause    M mute    - / + volume", introX, 58, { color: COLORS.dim });
 
     const near = this.nearestMachine();
     for (const m of this.machines) this.drawCabinet(g, m, m === near);
