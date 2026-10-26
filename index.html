@@ -31,6 +31,78 @@
         white-space: pre-wrap;
         display: none;
       }
+
+      /* on-screen controls, added by src/engine/touch.ts on touch devices only */
+      body.touch {
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+      }
+      .touch-controls {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+      }
+      .touch-pad,
+      .touch-btn {
+        position: absolute;
+        pointer-events: auto;
+        touch-action: none;
+        color: #f4f4f4;
+        font-family: monospace;
+        font-weight: bold;
+      }
+      .touch-pad {
+        left: max(16px, env(safe-area-inset-left));
+        bottom: max(16px, env(safe-area-inset-bottom));
+        width: 138px;
+        height: 138px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.08);
+        border: 2px solid rgba(244, 244, 244, 0.6);
+      }
+      .touch-pad span {
+        position: absolute;
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        border-radius: 8px;
+      }
+      .touch-pad .up { left: 47px; top: 4px; }
+      .touch-pad .down { left: 47px; bottom: 4px; }
+      .touch-pad .left { left: 4px; top: 47px; }
+      .touch-pad .right { right: 4px; top: 47px; }
+      .touch-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.08);
+        border: 2px solid rgba(244, 244, 244, 0.6);
+      }
+      .touch-a {
+        right: max(24px, env(safe-area-inset-right));
+        bottom: max(36px, env(safe-area-inset-bottom));
+        width: 84px;
+        height: 84px;
+        border-radius: 50%;
+        font-size: 28px;
+      }
+      .touch-pause {
+        right: max(16px, env(safe-area-inset-right));
+        top: max(16px, env(safe-area-inset-top));
+        width: 52px;
+        height: 44px;
+        border-radius: 10px;
+        font-size: 16px;
+      }
+      .touch-pad span.on,
+      .touch-btn.on {
+        background: rgba(255, 255, 255, 0.35);
+      }
     </style>
   </head>
   <body>

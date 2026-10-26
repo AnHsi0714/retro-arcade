@@ -21,8 +21,16 @@ function renderScale(): number {
  * backing store of RENDER_SCALE times that size, which the browser then
  * smoothly scales up to the on-screen size.
  */
+export interface ScreenOptions {
+  /** Horizontal space (CSS px) to keep free, e.g. for on-screen controls. Re-read on every resize. */
+  reserveX?: () => number;
+  /** Use any scale that fits instead of whole multiples; better use of small screens. */
+  fractional?: boolean;
+}
+
 export function createScreen(
   canvas: HTMLCanvasElement,
+  options: ScreenOptions = {},
 ): CanvasRenderingContext2D {
   const g = canvas.getContext("2d");
   if (!g) throw new Error("Canvas 2D context is not available");
@@ -30,10 +38,10 @@ export function createScreen(
 
   const resize = () => {
     const fit = Math.min(
-      window.innerWidth / WIDTH,
+      (window.innerWidth - (options.reserveX?.() ?? 0)) / WIDTH,
       window.innerHeight / HEIGHT,
     );
-    const scale = fit >= 1 ? Math.floor(fit) : fit;
+    const scale = fit >= 1 && !options.fractional ? Math.floor(fit) : fit;
     canvas.style.width = `${WIDTH * scale}px`;
     canvas.style.height = `${HEIGHT * scale}px`;
 

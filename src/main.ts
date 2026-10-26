@@ -7,8 +7,12 @@ import { Input, Keys } from "./engine/input";
 import { GameLoop } from "./engine/loop";
 import { SceneManager } from "./engine/scene";
 import { createScreen } from "./engine/screen";
+import { attachTouchControls, isTouchDevice } from "./engine/touch";
 import { drawVolumeIndicator } from "./engine/ui";
 import { HallwayScene } from "./hallway/HallwayScene";
+
+/** Width (CSS px) kept free on each side for touch controls in landscape. */
+const TOUCH_SIDE_SPACE = 170;
 
 function showError(message: string): void {
   const el = document.getElementById("error");
@@ -28,12 +32,18 @@ async function loadAssets(_audio: AudioManager): Promise<void> {
 function main(): void {
   const canvas = document.getElementById("screen") as HTMLCanvasElement | null;
   if (!canvas) throw new Error("Missing #screen canvas");
-  const g = createScreen(canvas);
+  const touch = isTouchDevice();
+  const g = createScreen(canvas, {
+    fractional: touch,
+    // in landscape the D-pad and buttons sit beside the screen, not on top of it
+    reserveX: () => (touch && window.innerWidth > window.innerHeight ? TOUCH_SIDE_SPACE * 2 : 0),
+  });
 
   const input = new Input();
   input.attach(window);
   const audio = new AudioManager();
   input.onAnyKey(() => audio.unlock());
+  attachTouchControls(input, canvas, () => audio.unlock());
   const services: GameServices = { input, audio };
 
   const scenes = new SceneManager();

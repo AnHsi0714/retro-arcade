@@ -2,6 +2,7 @@ import { HEIGHT, WIDTH } from "./constants";
 import type { GameServices } from "./game";
 import type { Scene } from "./scene";
 import { tr, type Localized } from "./i18n";
+import { isTouchDevice } from "./touch";
 import { blink, COLORS, drawPanel, drawText } from "./ui";
 
 const HOW_TO_PLAY: Array<[Localized, Localized]> = [
@@ -21,7 +22,7 @@ export class BootScene implements Scene {
   private time = 0;
   private ready = false;
   private error: string | null = null;
-  private readonly touchOnly = window.matchMedia?.("(pointer: coarse)").matches && !window.matchMedia("(pointer: fine)").matches;
+  private readonly touch = isTouchDevice();
 
   constructor(
     private readonly services: GameServices,
@@ -68,10 +69,14 @@ export class BootScene implements Scene {
       drawText(g, text, px + 70, py + 24 + i * 13);
     });
 
-    if (this.touchOnly) {
-      drawText(g, { en: "A KEYBOARD IS REQUIRED TO PLAY", zh: "需要鍵盤才能遊玩" }, WIDTH / 2, 196, { align: "center", color: COLORS.danger });
+    if (this.touch) {
+      drawText(g, { en: "TOUCH: D-PAD = arrow keys,  A = SPACE / ENTER,  II = ESC", zh: "觸控：方向盤＝方向鍵，A＝SPACE / ENTER，II＝ESC" }, WIDTH / 2, 196, {
+        align: "center",
+        color: COLORS.good,
+      });
     }
-    if (blink(this.time)) drawText(g, { en: "PRESS ANY KEY TO ENTER", zh: "按任意鍵進入" }, WIDTH / 2, 214, { align: "center" });
+    const start = this.touch ? { en: "TAP TO ENTER", zh: "點一下進入" } : { en: "PRESS ANY KEY TO ENTER", zh: "按任意鍵進入" };
+    if (blink(this.time)) drawText(g, start, WIDTH / 2, 214, { align: "center" });
     drawText(g, { en: "Inspired by classic arcades. Not affiliated with any original publisher.", zh: "受經典街機啟發，與任何原作公司無關。" }, WIDTH / 2, HEIGHT - 20, {
       align: "center",
       color: COLORS.dim,

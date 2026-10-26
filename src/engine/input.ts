@@ -41,17 +41,22 @@ export class Input {
   attach(target: Window): void {
     target.addEventListener("keydown", (e) => {
       if (BLOCK_DEFAULT.has(e.code)) e.preventDefault();
-      if (!e.repeat) {
-        this.down.add(e.code);
-        this.pendingPressed.add(e.code);
-      }
-      for (const fn of this.listeners) fn();
+      if (!e.repeat) this.press(e.code);
     });
-    target.addEventListener("keyup", (e) => {
-      this.down.delete(e.code);
-      this.pendingReleased.add(e.code);
-    });
+    target.addEventListener("keyup", (e) => this.release(e.code));
     target.addEventListener("blur", () => this.clear());
+  }
+
+  /** Presses a key by KeyboardEvent.code; used by the keyboard and by on-screen controls. */
+  press(code: string): void {
+    this.down.add(code);
+    this.pendingPressed.add(code);
+    for (const fn of this.listeners) fn();
+  }
+
+  release(code: string): void {
+    this.down.delete(code);
+    this.pendingReleased.add(code);
   }
 
   /** Called on every key press; used for things like unlocking audio. */

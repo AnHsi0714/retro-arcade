@@ -30,7 +30,7 @@ Pushing to `main` builds and deploys to GitHub Pages via [.github/workflows/depl
 | Meteor Drift  | ← → turn, ↑ thrust, Space fire                         |
 | Maze Chomper  | Arrows move, Space drop a trap                         |
 
-WASD works in place of the arrows. A keyboard is required; there are no touch controls yet.
+WASD works in place of the arrows. On phones and tablets, on-screen controls appear: the D-pad acts as the arrow keys, **A** as Space / Enter, **II** as Esc, and tapping the game screen as Enter. Volume and language are in the pause menu. Add `?touch=1` to the URL to try them on a desktop.
 
 ## The cabinets
 
@@ -59,6 +59,7 @@ src/
     audio.ts            sound playback: synth placeholders, overridable by loaded files, mute
     storage.ts          localStorage wrapper (high scores, sound, language), safe when storage is blocked
     i18n.ts             English / Chinese text: tr({ en, zh }), current language, toggle
+    touch.ts            on-screen D-pad and buttons for touch devices, sent to Input as virtual keys
     ui.ts               text, panels, HUD, menus (all text goes through drawText)
     bootScene.ts        title / loading screen, unlocks audio on first key
     math.ts             small math and collision helpers
